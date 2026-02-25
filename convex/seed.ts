@@ -44,6 +44,9 @@ export const insertMany = mutation({
          if (cleanedRecord.project_ids && typeof cleanedRecord.project_ids === 'string') {
             try { cleanedRecord.project_ids = JSON.parse(cleanedRecord.project_ids); } catch(e) { cleanedRecord.project_ids = [] }
         }
+         if (cleanedRecord.co_owners && typeof cleanedRecord.co_owners === 'string') {
+            try { cleanedRecord.co_owners = JSON.parse(cleanedRecord.co_owners); } catch(e) { cleanedRecord.co_owners = [] }
+        }
         
         // Numbers
          if (cleanedRecord.target_sqft) cleanedRecord.target_sqft = Number(cleanedRecord.target_sqft) || 0;
