@@ -209,4 +209,15 @@ export default defineSchema({
     details: v.any(),
     created_at: v.string(),
   }).index("by_supabase_id", ["supabase_id"]),
+
+  audit_logs: defineTable({
+    supabase_id: v.optional(v.string()),
+    table_name: v.string(),
+    record_id: v.optional(v.string()),
+    operation: v.string(),
+    old_data: v.optional(v.any()),
+    new_data: v.optional(v.any()),
+    changed_by: v.optional(v.string()),
+    created_at: v.string(),
+  }).index("by_supabase_id", ["supabase_id"]),
 });

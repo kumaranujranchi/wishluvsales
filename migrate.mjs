@@ -17,36 +17,47 @@ const client = new ConvexHttpClient(convexUrl);
 
 const CSV_DIR = path.join(process.cwd(), 'Database_csv');
 
-// Mapping CSV filenames to Convex table names
-const TABLE_MAP = {
-  'profiles_export.csv': 'profiles',
-  'departments_export.csv': 'departments',
-  'projects_export.csv': 'projects',
-  'announcements_export.csv': 'announcements',
-  'sales_targets_export.csv': 'targets', // Supabase table was sales_targets, UI says targets
-  'customers_export.csv': 'customers',
-  'site_visits_export.csv': 'site_visits',
-  'notifications_export.csv': 'notifications',
-  'sales_export.csv': 'sales',
-  'payments_export.csv': 'payments',
-  // 'incentives_export.csv': 'incentives', // No data anyway
-  // 'reports_export.csv': 'reports',       // No data anyway
-  'activity_log_export.csv': 'activity_logs',
-};
+// Mapping table names to possible CSV suffixes
+const TABLES = [
+  { table: 'profiles', files: ['profiles_export.csv', 'profiles_rows.csv'] },
+  { table: 'departments', files: ['departments_export.csv', 'departments_rows.csv'] },
+  { table: 'projects', files: ['projects_export.csv', 'projects_rows.csv'] },
+  { table: 'announcements', files: ['announcements_export.csv', 'announcements_rows.csv'] },
+  { table: 'targets', files: ['sales_targets_export.csv', 'sales_targets_rows.csv'] },
+  { table: 'customers', files: ['customers_export.csv', 'customers_rows.csv'] },
+  { table: 'site_visits', files: ['site_visits_export.csv', 'site_visits_rows.csv'] },
+  { table: 'notifications', files: ['notifications_export.csv', 'notifications_rows.csv'] },
+  { table: 'sales', files: ['sales_export.csv', 'sales_rows.csv'] },
+  { table: 'payments', files: ['payments_export.csv', 'payments_rows.csv'] },
+  { table: 'activity_logs', files: ['activity_log_export.csv', 'activity_log_rows.csv'] },
+  { table: 'audit_logs', files: ['audit_logs_rows.csv'] },
+];
 
 async function main() {
   console.log("Starting data migration to Convex...");
 
-  for (const [filename, tableName] of Object.entries(TABLE_MAP)) {
-    const filePath = path.join(CSV_DIR, filename);
+  for (const tableConfig of TABLES) {
+    let filePath = null;
+    let foundFilename = null;
+
+    for (const filename of tableConfig.files) {
+      const p = path.join(CSV_DIR, filename);
+      if (fs.existsSync(p)) {
+        filePath = p;
+        foundFilename = filename;
+        break;
+      }
+    }
     
-    if (!fs.existsSync(filePath)) {
-      console.log(`Skipping ${tableName} - file not found: ${filename}`);
+    const tableName = tableConfig.table;
+
+    if (!filePath) {
+      console.log(`Skipping ${tableName} - no matching CSV file found.`);
       continue;
     }
 
     try {
-      console.log(`\nImporting ${filename} to table -> ${tableName}...`);
+      console.log(`\nImporting ${foundFilename} to table -> ${tableName}...`);
       const fileContent = fs.readFileSync(filePath, 'utf-8');
       
       const records = parse(fileContent, {
@@ -60,6 +71,9 @@ async function main() {
         console.log(`Skipping - no data in ${tableName}.`);
         continue;
       }
+
+      console.log(`  Clearing existing data in ${tableName}...`);
+      await client.mutation(anyApi.seed.clearTable, { table: tableName });
 
       // Process in batches of 50 to avoid size limits on mutation args
       const batchSize = 50;

@@ -68,8 +68,33 @@ export const insertMany = mutation({
             delete cleanedRecord.id;
         }
 
-        await ctx.db.insert(tableId, cleanedRecord);
+        if (cleanedRecord.supabase_id) {
+            const existing = await ctx.db
+                .query(tableId)
+                .withIndex("by_supabase_id", (q: any) => q.eq("supabase_id", cleanedRecord.supabase_id))
+                .unique();
+            
+            if (existing) {
+                await ctx.db.patch(existing._id, cleanedRecord);
+            } else {
+                await ctx.db.insert(tableId, cleanedRecord);
+            }
+        } else {
+            await ctx.db.insert(tableId, cleanedRecord);
+        }
     }
     return { success: true, count: args.records.length };
+  },
+});
+
+export const clearTable = mutation({
+  args: { table: v.string() },
+  handler: async (ctx, args) => {
+    const tableId = args.table as any;
+    const records = await ctx.db.query(tableId).collect();
+    for (const record of records) {
+      await ctx.db.delete(record._id);
+    }
+    return { success: true, count: records.length };
   },
 });
