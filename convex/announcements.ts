@@ -4,7 +4,12 @@ import { query, mutation } from "./_generated/server";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("announcements").collect();
+    try {
+      return await ctx.db.query("announcements").collect();
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+      return [];
+    }
   },
 });
 

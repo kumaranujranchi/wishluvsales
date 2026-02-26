@@ -4,18 +4,23 @@ import { query, mutation } from "./_generated/server";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    const visits = await ctx.db.query("site_visits").order("desc").collect();
-    
-    return await Promise.all(visits.map(async (visit) => {
-      const requester = await ctx.db.get(visit.requested_by as any) as any;
-      const driver = visit.driver_id ? await ctx.db.get(visit.driver_id as any) as any : null;
+    try {
+      const visits = await ctx.db.query("site_visits").order("desc").collect();
       
-      return {
-        ...visit,
-        requester: requester ? { full_name: requester.full_name } : null,
-        driver: driver ? { full_name: driver.full_name } : null,
-      };
-    }));
+      return await Promise.all(visits.map(async (visit) => {
+        const requester = await ctx.db.get(visit.requested_by as any) as any;
+        const driver = visit.driver_id ? await ctx.db.get(visit.driver_id as any) as any : null;
+        
+        return {
+          ...visit,
+          requester: requester ? { full_name: requester.full_name } : null,
+          driver: driver ? { full_name: driver.full_name } : null,
+        };
+      }));
+    } catch (error) {
+      console.error("Error fetching site visits:", error);
+      return [];
+    }
   },
 });
 
