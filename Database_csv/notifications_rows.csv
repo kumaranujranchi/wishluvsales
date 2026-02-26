@@ -1,0 +1,82 @@
+id,user_id,title,message,type,related_entity_type,related_entity_id,is_read,created_at
+08ad1326-b18d-42fa-b5da-dd5f0ca3de4b,b1350c10-11e1-4bec-ae8f-e3f237e08077,Site Visit Needs Clarification,Your request for Anuj Kumar has been returned for clarification. Note: Why,warning,site_visit,e57a0cfe-49e6-4840-8ac2-d196ea4ca54f,true,2025-12-08 19:07:46.071034+00
+0be3f00a-e25f-4a25-b9a3-b3252586e368,1e20c1cd-52d7-40cd-863e-0be2f6551917,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+10752113-2da2-4ab6-9215-195db2960287,312945c1-840a-4bab-98a6-64af533e07ec,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+22b45165-33bf-4c75-a350-3860327b2578,cccaf648-49a8-4de1-8090-057b562f275b,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+2477da0a-a377-4eb5-a88f-2815b9a6ef7c,cccaf648-49a8-4de1-8090-057b562f275b,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+26d28296-1686-4cdc-a11b-8f1930df06ce,a003f7d7-6cee-472e-934b-2fc76920f60c,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+2c4a790a-f480-47b3-9732-d619048a6554,bf9e83f8-acb3-44f3-b660-b7797e9f5261,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,false,2025-12-09 17:53:03.566225+00
+2e8cea85-652e-4a57-a269-109adad51c94,102980d4-bf69-456f-af4b-1480936944e8,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+374f8501-cd9a-4c75-b8cf-09e8bc7492db,ebe1c271-7011-4854-9ade-836e325b0a4f,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+390bf520-a98d-443b-a26d-37c21e01a702,49d25df3-b5a6-44f2-bc2b-7e4973fa29d8,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+3c3209ed-1bde-4672-9a42-04c26245bc85,312945c1-840a-4bab-98a6-64af533e07ec,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+41229dcb-a16a-4c88-be2c-ae8190722d65,b1350c10-11e1-4bec-ae8f-e3f237e08077,Site Visit Approved,"Your request for Anuj Kumar has been approved. ",success,site_visit,e57a0cfe-49e6-4840-8ac2-d196ea4ca54f,true,2025-12-08 19:31:56.608922+00
+490f9cf2-f7ed-4b09-a371-4816a3099a3e,bf9e83f8-acb3-44f3-b660-b7797e9f5261,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+4c36dbcb-40a1-45f3-af1a-5d9d5a0660b4,1e20c1cd-52d7-40cd-863e-0be2f6551917,Site Visit Approved,Your request for Shubham  has been approved. Note: ok,success,site_visit,e284731f-3ba3-4b44-9607-55095353ef75,true,2025-12-09 18:25:30.96646+00
+4dc24a6a-eeb7-4c82-9b77-669302fee59d,bf9e83f8-acb3-44f3-b660-b7797e9f5261,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+62c5a992-0ad5-4810-a9c1-cabe547106c7,ebe1c271-7011-4854-9ade-836e325b0a4f,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+6b06700a-2488-4cc8-82fc-baa7bcdf4d96,312945c1-840a-4bab-98a6-64af533e07ec,New Site Visit Assigned,You have been assigned a site visit for Shubham  on 12/11/2025.,info,site_visit,e284731f-3ba3-4b44-9607-55095353ef75,false,2025-12-09 18:25:31.18191+00
+7ab018b3-c2dd-412c-9c74-362cd9b4552a,1351766d-08b6-49ab-95dd-ae8e5de97d68,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+7e72c6cd-0280-4f84-b839-c9cc3c12eb98,1351766d-08b6-49ab-95dd-ae8e5de97d68,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+82518aa5-79b6-4158-9e2a-e3f1f05d2567,1e20c1cd-52d7-40cd-863e-0be2f6551917,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+872e975a-7e82-43aa-874e-54bd8a8affa0,9bc9c302-cbe6-447f-b9de-f22f98040e8a,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+8b7c17f7-a996-4997-a182-74f0a7b92d11,312945c1-840a-4bab-98a6-64af533e07ec,New Site Visit Assigned,You have been assigned a site visit for Client on 12/10/2025.,info,site_visit,ad004767-c0ea-4465-8f9b-d9e78889686d,false,2025-12-10 11:04:12.798835+00
+908f69fc-f832-4f97-a09c-9a4199289001,312945c1-840a-4bab-98a6-64af533e07ec,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,false,2025-12-09 17:53:03.566225+00
+918e08d9-32c8-4bbe-a3da-61f4c94fc8bf,49d25df3-b5a6-44f2-bc2b-7e4973fa29d8,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+9f2b8b33-9571-406e-a7db-7d557f92573b,6e46e37a-7506-4b71-9dd7-24076ea0089d,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+9f90a63f-4624-4799-b19d-6b502ae4a738,1e20c1cd-52d7-40cd-863e-0be2f6551917,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+a38d24a5-4795-4da5-8425-00bb235993c4,49d25df3-b5a6-44f2-bc2b-7e4973fa29d8,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+a7f4e0e7-78c8-4f00-9f30-331d7cc7e638,b1350c10-11e1-4bec-ae8f-e3f237e08077,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+a8e41cea-ecb7-4445-b03c-b6ca54259003,b1350c10-11e1-4bec-ae8f-e3f237e08077,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+ab912e64-2f82-4c0d-bb18-8feaeadb1ad7,1351766d-08b6-49ab-95dd-ae8e5de97d68,Site Visit Approved,"Your request for Client has been approved. ",success,site_visit,ad004767-c0ea-4465-8f9b-d9e78889686d,true,2025-12-10 11:04:12.391801+00
+afda7fc3-16cd-4977-a9ed-93cb9dfdd4c9,ebe1c271-7011-4854-9ade-836e325b0a4f,New Announcement: Coming Late,If you will come late for more than 3 days in the ...,info,announcement,972eb0f8-23d0-4020-ab6a-b07be37d53d2,true,2025-12-09 17:53:03.566225+00
+baaa04a2-f25b-45bd-8d19-a3586b4ca5c5,403eef9e-2e69-4b4e-9b22-773c537a5961,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+bd2364c5-f827-4df2-9732-b0b6e95fc935,102980d4-bf69-456f-af4b-1480936944e8,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+c2f58cd6-e56a-4591-b980-d649ae717e9e,a003f7d7-6cee-472e-934b-2fc76920f60c,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+e290bd82-75f7-4377-9f18-4cf1ecdbcec8,9bc9c302-cbe6-447f-b9de-f22f98040e8a,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,true,2025-12-12 14:18:57.968562+00
+e6180337-0d29-49fd-af9e-125c3ab08040,6e46e37a-7506-4b71-9dd7-24076ea0089d,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+ea79d8c7-6643-493e-b3a5-60701b09897c,b1350c10-11e1-4bec-ae8f-e3f237e08077,Site Visit Needs Clarification,Your request for Anuj Kumar has been returned for clarification. Note: Why outside office,warning,site_visit,e57a0cfe-49e6-4840-8ac2-d196ea4ca54f,true,2025-12-08 19:27:14.447767+00
+f1b3ffdb-f4f1-40f5-bf32-afc73a6b6b96,403eef9e-2e69-4b4e-9b22-773c537a5961,New Announcement: Late Mark & Office Timing Policy,"
+This is to inform all employees about the Late Ma...",info,announcement,65510f35-81e7-4e01-b85f-1e212c043d09,false,2025-12-12 14:18:57.968562+00
+f4c1e23e-b8ea-489b-9296-29600c33e3d6,1351766d-08b6-49ab-95dd-ae8e5de97d68,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+f6e5a3a9-d811-404b-bfb2-7e4b0cdd5fc2,b1350c10-11e1-4bec-ae8f-e3f237e08077,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,false,2025-12-12 14:19:39.764072+00
+fdb3edd0-be97-4f9a-bb63-d1dcfde7005e,cccaf648-49a8-4de1-8090-057b562f275b,New Announcement: Regarding Leave,"Dear All 
+
+Every leave you take must be informed a...",info,announcement,a141830c-fff2-42e0-a9f8-bf24a0ab69db,true,2025-12-12 14:19:39.764072+00
+fde3de79-ec50-4c37-a201-5afa127ae203,312945c1-840a-4bab-98a6-64af533e07ec,New Site Visit Assigned,You have been assigned a site visit for Anuj Kumar on 12/10/2025.,info,site_visit,e57a0cfe-49e6-4840-8ac2-d196ea4ca54f,false,2025-12-08 19:31:56.79191+00

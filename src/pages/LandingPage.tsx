@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
     TrendingUp,
     Users,
@@ -18,6 +19,7 @@ import { ParticlesBackground } from '../components/ui/ParticlesBackground';
 
 export function LandingPage() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrollY, setScrollY] = useState(0);
@@ -29,10 +31,14 @@ export function LandingPage() {
     }, []);
 
     const handleLoginClick = () => {
-        setIsLoading(true);
-        setTimeout(() => {
-            navigate('/login');
-        }, 500);
+        if (user) {
+            navigate('/dashboard');
+        } else {
+            setIsLoading(true);
+            setTimeout(() => {
+                navigate('/login');
+            }, 500);
+        }
     };
 
     const features = [

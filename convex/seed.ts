@@ -101,3 +101,12 @@ export const clearTable = mutation({
     return { success: true, count: records.length };
   },
 });
+
+export const countRecords = mutation({
+  args: { table: v.string() },
+  handler: async (ctx, args) => {
+    const tableId = args.table as any;
+    const records = await ctx.db.query(tableId).collect();
+    return records.length;
+  },
+});

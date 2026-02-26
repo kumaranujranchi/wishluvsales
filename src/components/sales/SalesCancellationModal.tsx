@@ -1,35 +1,37 @@
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { Doc } from '../../convex/_generated/dataModel';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { AlertTriangle } from 'lucide-react';
 
 interface SalesCancellationModalProps {
-    sale: any;
+    sale: (Doc<"sales"> & { 
+        customer?: Doc<"customers"> | null; 
+        project?: Doc<"projects"> | null;
+    }) | null;
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
 
 export function SalesCancellationModal({ sale, isOpen, onClose, onSuccess }: SalesCancellationModalProps) {
-    const { profile } = useAuth();
+    const { user } = useAuth();
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    
+    const updateSale = useMutation(api.sales.update);
 
     const handleCancel = async () => {
+        if (!sale || !user) return;
+        
         if (!reason || reason.trim().length < 10) {
             setError('Please provide a detailed reason (minimum 10 characters).');
             return;
         }
-
-        // Check if payment processed - actually user requirement said "Prevent cancellation if payment has already been processed"
-        // But usually bookings have at least a booking amount paid.
-        // The requirement: "Prevent cancellation if payment has already been processed (or implement refund workflow)"
-        // For now, I will warn user. If strict prevention is needed, I would check total_received > 0.
-        // Let's implement strict check based on 'total_received' > 0? No, bookings always have payment.
-        // Let's just follow the "process cancellation" part for now, updating status to cancelled.
 
         setLoading(true);
         setError('');
@@ -40,17 +42,14 @@ export function SalesCancellationModal({ sale, isOpen, onClose, onSuccess }: Sal
                 booking_status: 'cancelled',
                 cancellation_reason: reason,
                 cancelled_at: new Date().toISOString(),
-                cancelled_by: profile?.id
+                cancelled_by: user.id
             };
 
-            const { error: updateError } = await supabase
-                .from('sales')
-                .update({
-                    metadata: updatedMetadata
-                })
-                .eq('id', sale.id);
-
-            if (updateError) throw updateError;
+            await updateSale({
+                id: sale._id,
+                metadata: updatedMetadata,
+                updated_at: new Date().toISOString(),
+            });
 
             onSuccess();
             onClose();
@@ -69,14 +68,14 @@ export function SalesCancellationModal({ sale, isOpen, onClose, onSuccess }: Sal
             title="Cancel Sale"
             size="md"
             footer={
-                <>
+                <div className="flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={loading}>
                         Close
                     </Button>
                     <Button variant="danger" onClick={handleCancel} disabled={loading}>
                         {loading ? 'Cancelling...' : 'Confirm Cancellation'}
                     </Button>
-                </>
+                </div>
             }
         >
             <div className="space-y-4">
@@ -96,8 +95,8 @@ export function SalesCancellationModal({ sale, isOpen, onClose, onSuccess }: Sal
                         Sale Details
                     </label>
                     <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-600 space-y-1">
-                        <p><span className="font-medium">Customer:</span> {sale?.customer?.name}</p>
-                        <p><span className="font-medium">Project:</span> {sale?.project?.name} - {sale?.unit_number || 'N/A'}</p>
+                        <p><span className="font-medium">Customer:</span> {sale?.customer?.name || 'N/A'}</p>
+                        <p><span className="font-medium">Project:</span> {sale?.project?.name || 'N/A'} - {sale?.unit_number || 'N/A'}</p>
                         <p><span className="font-medium">Date:</span> {sale?.sale_date}</p>
                     </div>
                 </div>

@@ -38,7 +38,7 @@ export default defineSchema({
     location_lng: v.optional(v.number()),
     google_maps_url: v.optional(v.string()),
     site_photos: v.array(v.string()),
-    metadata: v.any(),
+    metadata: v.optional(v.any()),
     is_active: v.boolean(),
     created_at: v.string(),
     updated_at: v.string(),
@@ -76,11 +76,11 @@ export default defineSchema({
     phone: v.string(),
     alternate_phone: v.optional(v.string()),
     address: v.optional(v.string()),
-    metadata: v.any(),
+    metadata: v.optional(v.any()),
     created_by: v.optional(v.string()),
     created_at: v.string(),
     updated_at: v.string(),
-  }).index("by_supabase_id", ["supabase_id"]),
+  }).index("by_supabase_id", ["supabase_id"]).index("by_phone", ["phone"]),
 
   site_visits: defineTable({
     supabase_id: v.optional(v.string()),
@@ -116,7 +116,7 @@ export default defineSchema({
     related_entity_id: v.optional(v.string()),
     is_read: v.boolean(),
     created_at: v.string(),
-  }).index("by_supabase_id", ["supabase_id"]),
+  }).index("by_supabase_id", ["supabase_id"]).index("by_user", ["user_id"]),
 
   sales: defineTable({
     supabase_id: v.optional(v.string()),
@@ -147,10 +147,10 @@ export default defineSchema({
     legal_status: v.optional(v.string()),
     payment_plan: v.optional(v.string()),
     notes: v.optional(v.string()),
-    metadata: v.any(),
+    metadata: v.optional(v.any()),
     created_at: v.string(),
     updated_at: v.string(),
-  }).index("by_supabase_id", ["supabase_id"]),
+  }).index("by_supabase_id", ["supabase_id"]).index("by_executive", ["sales_executive_id"]).index("by_customer", ["customer_id"]).index("by_project", ["project_id"]),
 
   payments: defineTable({
     supabase_id: v.optional(v.string()),
@@ -164,7 +164,7 @@ export default defineSchema({
     recorded_by: v.optional(v.string()),
     created_at: v.string(),
     updated_at: v.string(),
-  }).index("by_supabase_id", ["supabase_id"]),
+  }).index("by_supabase_id", ["supabase_id"]).index("by_sale", ["sale_id"]),
 
   incentives: defineTable({
     supabase_id: v.optional(v.string()),

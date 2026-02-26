@@ -16,8 +16,14 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Loading />;
   }
 
-  if (!user || !profile) {
+  if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If user is authenticated in Clerk but has no profile in Convex DB, they are unauthorized.
+  // Navigating them to /login would create an infinite redirect loop because Clerk is logged in.
+  if (!profile) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(profile.role)) {

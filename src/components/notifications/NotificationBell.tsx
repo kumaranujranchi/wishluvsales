@@ -1,42 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { Notification } from '../../types/database';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { Bell, Info, AlertTriangle, XCircle, CheckCircle } from 'lucide-react';
 import { Tooltip } from '../ui/Tooltip';
+import { Id } from '../../convex/_generated/dataModel';
 
 export function NotificationBell() {
     const { user } = useAuth();
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (user) {
-            loadNotifications();
+    // Convex Hooks
+    const userId = user?.id || '';
+    const notifications = useQuery(api.notifications.list, userId ? { user_id: userId } : "skip") || [];
+    const markRead = useMutation(api.notifications.markRead);
+    const markAllReadMutation = useMutation(api.notifications.markAllRead);
 
-            // Subscribe to new notifications
-            const subscription = supabase
-                .channel('public:notifications')
-                .on('postgres_changes', {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${user.id}`
-                }, (payload) => {
-                    setNotifications(prev => [payload.new as Notification, ...prev]);
-                    setUnreadCount(prev => prev + 1);
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
-        }
-    }, [user]);
+    const unreadCount = notifications.filter(n => !n.is_read).length;
 
     // Handle click outside to close
     useEffect(() => {
@@ -49,32 +32,13 @@ export function NotificationBell() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dropdownRef]);
 
-    const loadNotifications = async () => {
-        const { data } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user?.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (data) {
-            setNotifications(data);
-            setUnreadCount(data.filter(n => !n.is_read).length);
-        }
+    const handleMarkAsRead = async (id: Id<"notifications">) => {
+        await markRead({ id });
     };
 
-    const markAsRead = async (id: string) => {
-        // Optimistic update
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-
-        await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    };
-
-    const markAllRead = async () => {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
-        await supabase.from('notifications').update({ is_read: true }).eq('user_id', user?.id).eq('is_read', false);
+    const handleMarkAllRead = async () => {
+        if (!userId) return;
+        await markAllReadMutation({ user_id: userId });
     };
 
     const getIcon = (type: string) => {
@@ -107,7 +71,7 @@ export function NotificationBell() {
                     <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-lg">
                         <h3 className="font-semibold text-gray-900">Notifications</h3>
                         {unreadCount > 0 && (
-                            <button onClick={markAllRead} className="text-xs text-[#1673FF] hover:underline">
+                            <button onClick={handleMarkAllRead} className="text-xs text-[#1673FF] hover:underline">
                                 Mark all read
                             </button>
                         )}
@@ -121,10 +85,10 @@ export function NotificationBell() {
                         ) : (
                             notifications.map(notification => (
                                 <div
-                                    key={notification.id}
+                                    key={notification._id}
                                     className={`px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer ${!notification.is_read ? 'bg-blue-50/30' : ''}`}
                                     onClick={() => {
-                                        markAsRead(notification.id);
+                                        handleMarkAsRead(notification._id);
                                         if (notification.related_entity_type === 'announcement') {
                                             navigate('/announcements');
                                             setIsOpen(false);

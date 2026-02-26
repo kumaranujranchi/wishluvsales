@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { supabase } from '../../lib/supabase';
-import { Sale, Payment } from '../../types/database';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { Doc, Id } from '../../../convex/_generated/dataModel';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -14,20 +15,23 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 interface PaymentManagerProps {
     isOpen: boolean;
     onClose: () => void;
-    sale: Sale | null;
+    sale: Doc<"sales"> | null;
 }
 
 export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
     const { user } = useAuth();
     const dialog = useDialog();
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Convex Queries
+    const payments = useQuery(api.payments.listBySale, sale ? { sale_id: sale._id } : "skip") || [];
+    
+    // Convex Mutations
+    const addPayment = useMutation(api.payments.add);
+    const updatePayment = useMutation(api.payments.update);
 
-    // New Payment Form State
-    // New Payment Form State
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
-    const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+    const [editingPayment, setEditingPayment] = useState<Doc<"payments"> | null>(null);
     const [paymentData, setPaymentData] = useState({
         paymentDate: new Date().toISOString().slice(0, 10),
         amount: '',
@@ -38,23 +42,9 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
 
     useEffect(() => {
         if (isOpen && sale) {
-            loadPayments();
             setShowAddForm(false);
         }
     }, [isOpen, sale]);
-
-    const loadPayments = async () => {
-        if (!sale) return;
-        setLoading(true);
-        const { data } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('sale_id', sale.id)
-            .order('payment_date', { ascending: false });
-
-        if (data) setPayments(data as Payment[]); // Cast if needed, assuming types match DB
-        setLoading(false);
-    };
 
     const handleAddPayment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -62,34 +52,30 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
         setIsSubmitting(true);
 
         try {
+            const now = new Date().toISOString();
             if (editingPayment) {
-                // Update existing payment
-                const { error } = await supabase
-                    .from('payments')
-                    .update({
-                        payment_date: paymentData.paymentDate,
-                        amount: parseFloat(paymentData.amount),
-                        payment_type: paymentData.paymentType,
-                        payment_mode: paymentData.paymentMode,
-                        remarks: paymentData.remarks,
-                    })
-                    .eq('id', editingPayment.id);
-
-                if (error) throw error;
-                await dialog.alert('Payment updated successfully!', { variant: 'success' });
-            } else {
-                // Insert new payment
-                const { error } = await supabase.from('payments').insert({
-                    sale_id: sale.id,
+                await updatePayment({
+                    id: editingPayment._id,
                     payment_date: paymentData.paymentDate,
                     amount: parseFloat(paymentData.amount),
                     payment_type: paymentData.paymentType,
                     payment_mode: paymentData.paymentMode,
                     remarks: paymentData.remarks,
-                    recorded_by: user.id
+                    updated_at: now,
                 });
-
-                if (error) throw error;
+                await dialog.alert('Payment updated successfully!', { variant: 'success' });
+            } else {
+                await addPayment({
+                    sale_id: sale._id,
+                    payment_date: paymentData.paymentDate,
+                    amount: parseFloat(paymentData.amount),
+                    payment_type: paymentData.paymentType,
+                    payment_mode: paymentData.paymentMode,
+                    remarks: paymentData.remarks,
+                    recorded_by: user.id,
+                    created_at: now,
+                    updated_at: now,
+                });
                 await dialog.alert('Payment recorded successfully!', { variant: 'success' });
             }
 
@@ -102,7 +88,6 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                 paymentMode: 'cheque',
                 remarks: ''
             });
-            loadPayments();
         } catch (err: any) {
             console.error('Error saving payment:', err);
             await dialog.alert('Failed to save payment.', { variant: 'danger' });
@@ -111,7 +96,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
         }
     };
 
-    const handleEditPayment = (payment: Payment) => {
+    const handleEditPayment = (payment: Doc<"payments">) => {
         setEditingPayment(payment);
         setPaymentData({
             paymentDate: payment.payment_date,
@@ -138,26 +123,20 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
     const handleDownloadLedger = () => {
         if (!payments.length || !sale) return;
 
-        // CSV Headers
-        const headers = ['Date', 'Payment Type', 'Payment Mode', 'Amount', 'Remarks', 'Transaction Ref'];
-
-        // CSV Rows
+        const headers = ['Date', 'Payment Type', 'Payment Mode', 'Amount', 'Remarks'];
         const rows = payments.map(p => [
             new Date(p.payment_date).toLocaleDateString(),
             p.payment_type?.replace('_', ' ').toUpperCase() || '',
             p.payment_mode?.replace('_', ' ').toUpperCase() || '',
             p.amount,
-            `"${p.remarks || ''}"`, // Quote remarks to handle commas
-            `"${(p as any).transaction_reference || ''}"`
+            `"${p.remarks || ''}"`
         ]);
 
-        // Combine
         const csvContent = [
             headers.join(','),
             ...rows.map(row => row.join(','))
         ].join('\n');
 
-        // Download
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -171,7 +150,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
 
     if (!sale) return null;
 
-    const totalReceived = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalReceived = payments.reduce((sum: number, p: Doc<"payments">) => sum + (Number(p.amount) || 0), 0);
     const totalRevenue = sale.total_revenue || 0;
     const pendingAmount = totalRevenue - totalReceived;
     const receivedPercentage = totalRevenue > 0 ? (totalReceived / totalRevenue) * 100 : 0;
@@ -189,7 +168,6 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
             size="xl"
         >
             <div className="space-y-6">
-                {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white dark:bg-[#131f1a] p-5 rounded-lg border border-gray-200 dark:border-[#2a3f35] shadow-sm dark:shadow-none">
                         <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Sale Value</p>
@@ -206,9 +184,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                     </div>
                 </div>
 
-                {/* Main Content Area: Chart & Action */}
                 <div className="flex flex-col md:flex-row gap-6">
-                    {/* Collection Graph */}
                     <div className="w-full md:w-1/2 h-48 bg-white dark:bg-[#131f1a] rounded-lg p-2 border border-gray-200 dark:border-[#2a3f35] shadow-sm dark:shadow-none">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-400 mb-2 px-2 flex items-center gap-1">
                             <TrendingUp size={14} /> Collection Progress
@@ -220,7 +196,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                                     dataKey="name" 
                                     type="category" 
                                     width={70} 
-                                    tick={({ x, y, payload }) => (
+                                    tick={({ x, y, payload }: any) => (
                                         <text x={x} y={y} dy={4} textAnchor="end" className="fill-gray-600 dark:fill-gray-400 text-xs font-medium">
                                             {payload.value}
                                         </text>
@@ -241,7 +217,6 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Actions */}
                     <div className="w-full md:w-1/2 flex flex-col justify-center gap-3">
                         <Button 
                             className="w-full bg-[#10B981] hover:bg-[#059669] text-white dark:bg-[#00d26a] dark:hover:bg-[#00b359] dark:text-black font-semibold border-none"
@@ -260,14 +235,13 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                     </div>
                 </div>
 
-                {/* Add Payment Form */}
                 <form onSubmit={handleAddPayment} className={`bg-gray-50 dark:bg-[#131f1a] p-6 rounded-lg border border-gray-200 dark:border-[#2a3f35] space-y-4 ${showAddForm ? 'block' : 'hidden'}`}>
                     <h4 className="font-medium text-gray-900 dark:text-white mb-2">{editingPayment ? 'Edit Payment Entry' : 'New Payment Entry'}</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input 
                             label="Date" 
                             type="date" 
-                            className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white placeholder-gray-500"
+                            className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white"
                             value={paymentData.paymentDate} 
                             onChange={e => setPaymentData({ ...paymentData, paymentDate: e.target.value })} 
                             required 
@@ -275,7 +249,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                         <Input 
                             label="Amount" 
                             type="number" 
-                            className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white placeholder-gray-500"
+                            className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white"
                             value={paymentData.amount} 
                             onChange={e => setPaymentData({ ...paymentData, amount: e.target.value })} 
                             required 
@@ -309,7 +283,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                     </div>
                     <Input 
                         label="Remarks / Transaction Ref" 
-                        className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white placeholder-gray-500"
+                        className="bg-white dark:bg-[#1a2c25] border-gray-300 dark:border-[#2a3f35] focus:border-[#10B981] dark:focus:border-[#00d26a] text-gray-900 dark:text-white"
                         value={paymentData.remarks} 
                         onChange={e => setPaymentData({ ...paymentData, remarks: e.target.value })} 
                     />
@@ -325,14 +299,11 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                     </div>
                 </form>
 
-                {/* Payment History List */}
                 <div>
                     <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                         <History size={16} /> Payment History
                     </h4>
-                    {loading ? (
-                        <div className="text-center py-4 text-gray-400">Loading...</div>
-                    ) : payments.length === 0 ? (
+                    {payments.length === 0 ? (
                         <div className="text-center py-8 text-gray-500 border border-dashed border-gray-300 dark:border-[#2a3f35] bg-gray-50 dark:bg-[#131f1a]/50 rounded-lg">
                             No payments recorded yet.
                         </div>
@@ -351,7 +322,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-[#2a3f35]">
                                     {payments.map(payment => (
-                                        <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-[#1a2c25] text-gray-700 dark:text-gray-300">
+                                        <tr key={payment._id} className="hover:bg-gray-50 dark:hover:bg-[#1a2c25] text-gray-700 dark:text-gray-300">
                                             <td className="px-4 py-2">{new Date(payment.payment_date).toLocaleDateString()}</td>
                                             <td className="px-4 py-2 capitalize">{payment.payment_type?.replace('_', ' ')}</td>
                                             <td className="px-4 py-2 capitalize">{payment.payment_mode?.replace('_', ' ')}</td>

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useDialog } from '../contexts/DialogContext';
-import { Project } from '../types/database';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
@@ -9,18 +9,22 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Modal, ModalFooter } from '../components/ui/Modal';
 import { Building, Plus, ExternalLink, Trash2, Pencil } from 'lucide-react';
-
-
 import { useAuth } from '../contexts/AuthContext';
+import { Id, Doc } from '../../convex/_generated/dataModel';
 
 export function ProjectsPage() {
   const { profile } = useAuth();
   const dialog = useDialog();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Convex Hooks
+  const projects = useQuery(api.projects.list);
+  const addProject = useMutation(api.projects.add);
+  const updateProject = useMutation(api.projects.update);
+  const removeProject = useMutation(api.projects.remove);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<Id<"projects"> | null>(null);
   
   const isReadOnly = profile?.role === 'director';
 
@@ -30,24 +34,14 @@ export function ProjectsPage() {
     googleMapsUrl: ''
   });
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('name');
-    if (data) setProjects(data);
-    setLoading(false);
-  };
-
   const resetForm = () => {
     setFormData({ name: '', address: '', googleMapsUrl: '' });
     setEditingProjectId(null);
   };
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = (project: Doc<"projects">) => {
     if (isReadOnly) return;
-    setEditingProjectId(project.id);
+    setEditingProjectId(project._id);
     setFormData({
       name: project.name,
       address: project.address || '',
@@ -68,34 +62,29 @@ export function ProjectsPage() {
     try {
       if (editingProjectId) {
         // Update existing project
-        const { error } = await supabase
-          .from('projects')
-          .update({
-            name: formData.name,
-            address: formData.address,
-            google_maps_url: formData.googleMapsUrl || null,
-          })
-          .eq('id', editingProjectId);
-
-        if (error) throw error;
+        await updateProject({
+          id: editingProjectId,
+          name: formData.name,
+          address: formData.address,
+          google_maps_url: formData.googleMapsUrl || undefined,
+          updated_at: new Date().toISOString()
+        });
         await dialog.alert('Project updated successfully!', { variant: 'success', title: 'Success' });
       } else {
         // Create new project
-        const { error } = await supabase.from('projects').insert({
+        await addProject({
           name: formData.name,
           address: formData.address,
-          google_maps_url: formData.googleMapsUrl || null,
+          google_maps_url: formData.googleMapsUrl || undefined,
           is_active: true,
-          site_photos: [], // Initialize as empty array
-          metadata: {}
+          site_photos: [], 
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
-
-        if (error) throw error;
         await dialog.alert('Project added successfully!', { variant: 'success', title: 'Success' });
       }
 
       handleCloseModal();
-      loadProjects();
     } catch (error) {
       console.error('Error saving project:', error);
       await dialog.alert('Failed to save project', { variant: 'danger', title: 'Error' });
@@ -104,7 +93,7 @@ export function ProjectsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: Id<"projects">) => {
     if (isReadOnly) return;
     const confirmed = await dialog.confirm('Are you sure you want to delete this project?', {
       variant: 'danger',
@@ -115,9 +104,7 @@ export function ProjectsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('projects').delete().eq('id', id);
-      if (error) throw error;
-      loadProjects();
+      await removeProject({ id });
       await dialog.alert('Project deleted.', { variant: 'success', title: 'Deleted' });
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -148,7 +135,7 @@ export function ProjectsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {!projects ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#1673FF] border-t-transparent"></div>
             </div>
@@ -165,7 +152,7 @@ export function ProjectsPage() {
               </TableHeader>
               <TableBody>
                 {projects.map((project) => (
-                  <TableRow key={project.id}>
+                  <TableRow key={project._id}>
                     <TableCell className="font-medium">{project.name}</TableCell>
                     <TableCell>{project.address || '-'}</TableCell>
                     <TableCell>
@@ -195,7 +182,7 @@ export function ProjectsPage() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10"
-                            onClick={() => handleDelete(project.id)}
+                            onClick={() => handleDelete(project._id)}
                             >
                             <Trash2 size={16} />
                             </Button>
@@ -246,7 +233,6 @@ export function ProjectsPage() {
             placeholder="https://maps.google.com/..."
           />
           <ModalFooter>
-             {/* ... */}
             <Button
               type="button"
               variant="outline"

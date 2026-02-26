@@ -1,9 +1,0 @@
-"id","requested_by","customer_name","customer_phone","pickup_location","project_ids","visit_date","visit_time","status","assigned_vehicle","approved_by","approved_at","is_public","notes","created_at","updated_at","driver_id","start_odometer","end_odometer","rejection_reason","clarification_note"
-"e57a0cfe-49e6-4840-8ac2-d196ea4ca54f","b1350c10-11e1-4bec-ae8f-e3f237e08077","Anuj Kumar","7808060888","Office","[""e8575c39-b777-4d6f-bd1f-3c3c7fd40b18""]","2025-12-10","00:38:00","approved",,"cccaf648-49a8-4de1-8090-057b562f275b","2025-12-08 19:31:56.303+00","true","
-
-[12/9/2025, 12:57:46 AM] Clarification Response:
-Sir urgent hai ","2025-12-08 19:06:54.387144+00","2025-12-08 19:31:56.417968+00","312945c1-840a-4bab-98a6-64af533e07ec",,,,"Why outside office"
-"e284731f-3ba3-4b44-9607-55095353ef75","1e20c1cd-52d7-40cd-863e-0be2f6551917","Shubham ","98788787656","Office","[""9192d687-a4f8-4d71-bec3-81427e205f5a""]","2025-12-11","23:52:00","approved",,"cccaf648-49a8-4de1-8090-057b562f275b","2025-12-09 18:25:30.478+00","true","NA
-
-[Approved]: ok","2025-12-09 18:19:37.177744+00","2025-12-09 18:25:30.658571+00","312945c1-840a-4bab-98a6-64af533e07ec",,,,
-"ad004767-c0ea-4465-8f9b-d9e78889686d","1351766d-08b6-49ab-95dd-ae8e5de97d68","Client","1234567890","Office","[""e26991b5-6372-4461-8cc9-d1ef0fb87719""]","2025-12-10","15:42:00","approved",,"cccaf648-49a8-4de1-8090-057b562f275b","2025-12-10 11:04:11.397+00","true","","2025-12-10 10:12:02.534506+00","2025-12-10 11:04:11.980289+00","312945c1-840a-4bab-98a6-64af533e07ec",,,,

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useDialog } from '../contexts/DialogContext';
-import { Department } from '../types/database';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
@@ -9,18 +9,22 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Modal, ModalFooter } from '../components/ui/Modal';
 import { Briefcase, Plus, Trash2, Pencil } from 'lucide-react';
-
-
 import { useAuth } from '../contexts/AuthContext';
+import { Id, Doc } from '../../convex/_generated/dataModel';
 
 export function DepartmentsPage() {
   const { profile } = useAuth();
   const dialog = useDialog();
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Convex Hooks
+  const departments = useQuery(api.departments.list);
+  const addDepartment = useMutation(api.departments.add);
+  const updateDepartment = useMutation(api.departments.update);
+  const removeDepartment = useMutation(api.departments.remove);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
+  const [editingDepartmentId, setEditingDepartmentId] = useState<Id<"departments"> | null>(null);
 
   const isReadOnly = profile?.role === 'director';
 
@@ -29,24 +33,14 @@ export function DepartmentsPage() {
     description: ''
   });
 
-  useEffect(() => {
-    loadDepartments();
-  }, []);
-
-  const loadDepartments = async () => {
-    const { data } = await supabase.from('departments').select('*').order('name');
-    if (data) setDepartments(data);
-    setLoading(false);
-  };
-
   const resetForm = () => {
     setFormData({ name: '', description: '' });
     setEditingDepartmentId(null);
   };
 
-  const handleEditDepartment = (dept: Department) => {
+  const handleEditDepartment = (dept: Doc<"departments">) => {
     if (isReadOnly) return;
-    setEditingDepartmentId(dept.id);
+    setEditingDepartmentId(dept._id);
     setFormData({
       name: dept.name,
       description: dept.description || ''
@@ -66,30 +60,26 @@ export function DepartmentsPage() {
     try {
       if (editingDepartmentId) {
         // Update existing department
-        const { error } = await supabase
-          .from('departments')
-          .update({
-            name: formData.name,
-            description: formData.description
-          })
-          .eq('id', editingDepartmentId);
-
-        if (error) throw error;
+        await updateDepartment({
+          id: editingDepartmentId,
+          name: formData.name,
+          description: formData.description,
+          updated_at: new Date().toISOString()
+        });
         await dialog.alert('Department updated successfully!', { variant: 'success', title: 'Success' });
       } else {
         // Create new department
-        const { error } = await supabase.from('departments').insert({
+        await addDepartment({
           name: formData.name,
           description: formData.description,
-          is_active: true
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
-
-        if (error) throw error;
         await dialog.alert('Department added successfully!', { variant: 'success', title: 'Success' });
       }
 
       handleCloseModal();
-      loadDepartments();
     } catch (error) {
       console.error('Error saving department:', error);
       await dialog.alert('Failed to save department', { variant: 'danger', title: 'Error' });
@@ -98,7 +88,7 @@ export function DepartmentsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: Id<"departments">) => {
     if (isReadOnly) return;
     const confirmed = await dialog.confirm('Are you sure you want to delete this department?', {
       variant: 'danger',
@@ -109,9 +99,7 @@ export function DepartmentsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('departments').delete().eq('id', id);
-      if (error) throw error;
-      loadDepartments();
+      await removeDepartment({ id });
       await dialog.alert('Department deleted.', { variant: 'success', title: 'Deleted' });
     } catch (error) {
       console.error('Error deleting department:', error);
@@ -142,7 +130,7 @@ export function DepartmentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {!departments ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#1673FF] border-t-transparent"></div>
             </div>
@@ -158,7 +146,7 @@ export function DepartmentsPage() {
               </TableHeader>
               <TableBody>
                 {departments.map((dept) => (
-                  <TableRow key={dept.id}>
+                  <TableRow key={dept._id}>
                     <TableCell className="font-medium">{dept.name}</TableCell>
                     <TableCell>{dept.description || '-'}</TableCell>
                     <TableCell>
@@ -176,7 +164,7 @@ export function DepartmentsPage() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10"
-                            onClick={() => handleDelete(dept.id)}
+                            onClick={() => handleDelete(dept._id)}
                             >
                             <Trash2 size={16} />
                             </Button>
@@ -221,7 +209,6 @@ export function DepartmentsPage() {
             placeholder="Department responsibilities..."
           />
           <ModalFooter>
-             {/* ... */}
             <Button
               type="button"
               variant="outline"

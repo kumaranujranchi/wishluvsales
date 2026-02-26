@@ -1,14 +1,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { useUser, useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { Profile } from '../types/database';
 
 interface AuthContextType {
-  user: User | null;
+  user: any | null; // Clerk user
   profile: Profile | null;
-  session: Session | null;
+  session: any | null; // Clerk session (unused directly by old code format usually)
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -16,114 +17,76 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { isLoaded: isSessionLoaded, signOut: clerkSignOut } = useClerkAuth();
+  const clerk = useClerk();
+  
+  const email = user?.primaryEmailAddress?.emailAddress;
+
+  // Reactively fetch user profile from Convex
+  const profileRaw = useQuery(
+    api.profiles.getByEmail,
+    email ? { email } : "skip"
+  );
+  
+  const isProfileLoading = email ? profileRaw === undefined : false;
+  const loading = !isUserLoaded || !isSessionLoaded || isProfileLoading;
+  
+  console.log('Auth State:', { isUserLoaded, isSessionLoaded, email, isProfileLoading, loading, profileRaw });
+  
+  // Manage explicit state so it aligns with previous component expectations
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!error && data) {
-      if (data.is_active === false) {
-        await supabase.auth.signOut();
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        throw new Error('Account is deactivated. Please contact support.');
-      }
-      setProfile(data);
-    }
-  };
-
-  const refreshProfile = async () => {
-    if (user) {
-      try {
-        await fetchProfile(user.id);
-      } catch (error) {
-        console.error('Error refreshing profile:', error);
-      }
-    }
-  };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          try {
-            await fetchProfile(session.user.id);
-          } catch (error) {
-            // Error handled in fetchProfile (sign out)
-            console.error(error);
-          }
-        }
-        setLoading(false);
-      })();
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          try {
-            await fetchProfile(session.user.id);
-          } catch (error) {
-            console.error(error);
-          }
-        } else {
+    if (profileRaw !== undefined) {
+      if (profileRaw === null) {
           setProfile(null);
-        }
-        setLoading(false);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      console.log('Attempting login for:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        console.error('Auth error:', error);
-        throw error;
+      } else if (profileRaw.is_active === false) {
+          clerkSignOut(); // User is disabled mapping
+          setProfile(null);
+      } else {
+          setProfile(prev => {
+              if (prev && prev.id === profileRaw._id && prev.updated_at === profileRaw.updated_at) {
+                  return prev; // Break the infinite render loop
+              }
+              return {
+                  ...profileRaw,
+                  id: profileRaw._id
+              } as Profile;
+          });
       }
-
-      if (data.user) {
-        console.log('User authenticated, fetching profile...');
-        try {
-          await fetchProfile(data.user.id);
-          console.log('Profile fetched successfully');
-        } catch (profileError: any) {
-          console.error('Profile fetch error:', profileError);
-          return { error: new Error(profileError.message || 'Access denied') };
-        }
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      return { error: error as Error };
+    } else {
+       if (!email) {
+           setProfile(null);
+       }
     }
+  }, [profileRaw, email, clerkSignOut]);
+
+  // Expose mock signIn if needed, though Clerk handles its own login forms, 
+  // keeping the signature doesn't break dependent components immediately.
+  const signIn = async () => {
+    return { error: new Error('Please use Clerk Login components.') };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setUser(null);
-    setSession(null);
+    await clerkSignOut();
+  };
+
+  const refreshProfile = async () => {
+    // Convex useQuery auto-refreshes component on data change, 
+    // so this is largely a no-op but we keep it for API compatibility.
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ 
+        user: user || null, 
+        profile, 
+        session: null, 
+        loading, 
+        signIn, 
+        signOut, 
+        refreshProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

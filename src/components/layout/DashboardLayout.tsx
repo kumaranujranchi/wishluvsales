@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SignOutButton, UserButton } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileModal } from '../profile/ProfileModal';
 import { Tooltip } from '../ui/Tooltip';
@@ -22,6 +23,7 @@ import {
   ChevronRight,
   BarChart2,
   Contact,
+  LucideIcon,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -31,7 +33,7 @@ interface DashboardLayoutProps {
 interface NavItem {
   label: string;
   path: string;
-  icon: any;
+  icon: LucideIcon;
   roles?: string[];
 }
 
@@ -58,8 +60,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -72,11 +73,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   if (isMobile) {
     return <MobileLayout>{children}</MobileLayout>;
   }
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
-  };
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -101,44 +97,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Menu size={20} />
             </button>
-
-            {/* Search Bar Removed */}
           </div>
 
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <NotificationBell />
 
-            {/* Profile Dropdown Trigger */}
             <div className="h-8 w-[1px] bg-gray-200 dark:bg-white/10 mx-2 hidden md:block"></div>
 
-            <Tooltip content="Manage Profile" position="bottom">
-              <button
-                onClick={() => setIsProfileOpen(true)}
-                className="flex items-center gap-3 pl-1 pr-2 py-1 rounded-full hover:bg-gray-50 dark:hover:bg-white/5 border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-all"
-              >
-                <div className="relative">
-                  {profile?.image_url && !imageError ? (
-                    <img
-                      src={profile.image_url}
-                      alt={profile.full_name}
-                      onError={() => setImageError(true)}
-                      className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shadow-sm"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-white/10 shadow-sm text-sm">
-                      {profile?.full_name?.charAt(0)}
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-surface-dark rounded-full"></div>
-                </div>
-
-                <div className="hidden md:block text-right">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-white leading-none">{profile?.full_name}</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium capitalize mt-1">{profile?.role?.replace('_', ' ')}</p>
-                </div>
-              </button>
-            </Tooltip>
+            <div className="flex items-center gap-3 pl-1 pr-2 py-1">
+              <UserButton afterSignOutUrl="/login" />
+              <div className="hidden md:block text-right">
+                <p className="text-sm font-semibold text-gray-700 dark:text-white leading-none">{profile?.full_name}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium capitalize mt-1">{profile?.role?.replace('_', ' ')}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -227,18 +200,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Bottom Actions */}
           <div className="p-4 border-t border-dashed border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-transparent">
-            <button
-              onClick={handleSignOut}
-              className={`
-                  w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
-                  text-slate-500 dark:text-text-muted hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400
-                  transition-all duration-200 group
-                  ${isCollapsed ? 'justify-center' : ''}
-                `}
-            >
-              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-              {!isCollapsed && <span className="font-semibold text-sm">Sign Out</span>}
-            </button>
+            <SignOutButton>
+              <button
+                className={`
+                    w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
+                    text-slate-500 dark:text-gray-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400
+                    transition-all duration-200 group
+                    ${isCollapsed ? 'justify-center' : ''}
+                  `}
+              >
+                <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+                {!isCollapsed && <span className="font-semibold text-sm">Sign Out</span>}
+              </button>
+            </SignOutButton>
           </div>
         </div>
       </aside>
