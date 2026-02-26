@@ -7,7 +7,7 @@ import { Search, Bookmark } from 'lucide-react';
 import { Input } from '../ui/Input';
 
 export function AnnouncementCenter() {
-    const rawAnnouncements = useQuery((api as any).announcements?.listAll);
+    const rawAnnouncements = useQuery(api.announcements.listAll);
     const [filter, setFilter] = useState('');
 
     const announcements = useMemo(() => {

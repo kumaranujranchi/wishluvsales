@@ -14,7 +14,7 @@ import { Megaphone, Plus, Trash2, Pencil } from 'lucide-react';
 export function AnnouncementsPage() {
   const { user, profile } = useAuth();
   const dialog = useDialog();
-  const rawAnnouncements = useQuery((api as any).announcements?.listAll);
+  const rawAnnouncements = useQuery(api.announcements.listAll);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,9 +27,9 @@ export function AnnouncementsPage() {
     isPublished: true
   });
 
-  const createAnnouncement = useMutation((api as any).announcements?.add);
-  const updateAnnouncement = useMutation((api as any).announcements?.update);
-  const deleteAnnouncement = useMutation((api as any).announcements?.remove);
+  const createAnnouncement = useMutation(api.announcements.add);
+  const updateAnnouncement = useMutation(api.announcements.update);
+  const deleteAnnouncement = useMutation(api.announcements.remove);
 
   const announcements = useMemo(() => {
     return (rawAnnouncements || []).map((ann: any) => ({
