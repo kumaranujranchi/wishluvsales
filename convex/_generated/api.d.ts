@@ -11,6 +11,7 @@
 import type * as activity_logs from "../activity_logs.js";
 import type * as customers from "../customers.js";
 import type * as departments from "../departments.js";
+import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
 import type * as payments from "../payments.js";
 import type * as profiles from "../profiles.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   activity_logs: typeof activity_logs;
   customers: typeof customers;
   departments: typeof departments;
+  migration: typeof migration;
   notifications: typeof notifications;
   payments: typeof payments;
   profiles: typeof profiles;

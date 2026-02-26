@@ -27,9 +27,9 @@ export function LoginPage() {
       <div className="min-h-[100dvh] flex items-center justify-center p-4 md:p-8 relative z-10">
         <div className="max-w-md w-full animate-fadeInUp">
           {/* Login Card */}
-          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-card-custom overflow-hidden transform transition-all duration-500">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-card-custom transform transition-all duration-500">
             {/* Header Section */}
-            <div className="bg-gradient-to-r from-[#1673FF] to-[#0A1C37] px-8 py-10 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-r from-[#1673FF] to-[#0A1C37] px-8 py-10 text-center relative rounded-t-3xl overflow-hidden">
               <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
               <div className="relative z-10">
                 <div className="inline-flex items-center justify-center mb-4 transform transition-transform duration-500 hover:scale-110 hover:rotate-3">
@@ -44,7 +44,7 @@ export function LoginPage() {
             </div>
 
             {/* Clerk SignIn Section */}
-            <div className="px-6 py-6 flex justify-center">
+            <div className="px-6 pt-8 pb-6 flex justify-center">
               <SignIn
                 fallbackRedirectUrl="/dashboard"
                 appearance={{
