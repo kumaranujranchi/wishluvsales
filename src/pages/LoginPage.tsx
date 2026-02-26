@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield, Lock } from 'lucide-react';
 import { useState } from 'react';
 
-import { SignIn } from '@clerk/clerk-react';
+import { RedirectToSignIn } from '@clerk/clerk-react';
 
 export function LoginPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -47,9 +47,7 @@ export function LoginPage() {
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
             </div>
 
-              <SignIn 
-                fallbackRedirectUrl="/dashboard"
-              />
+              <RedirectToSignIn redirectUrl="/dashboard" />
             
             {/* Security Badge */}
             <div className="px-8 pb-6 bg-white/95">
