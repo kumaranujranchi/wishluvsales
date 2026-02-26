@@ -55,14 +55,12 @@ export function LoginPage() {
                 fallbackRedirectUrl="/dashboard"
                 appearance={{
                   elements: {
-                    rootBox: "w-full mx-auto",
-                    card: "shadow-none p-0 bg-transparent w-full",
+                    rootBox: "w-full mx-auto flex justify-center",
+                    card: "shadow-none p-0 bg-transparent w-full max-w-sm",
                     header: "hidden", // Hide Clerk's default header since we have our custom one
-                    formButtonPrimary: "bg-gradient-to-r from-[#1673FF] to-[#0A1C37] hover:scale-[1.02] transition-transform text-white rounded-xl py-3 font-semibold",
-                    formFieldInput: "rounded-xl border-gray-200 focus:ring-[#1673FF]/20 focus:border-[#1673FF] py-3",
+                    formButtonPrimary: "bg-gradient-to-r from-[#1673FF] to-[#0A1C37] hover:opacity-90 transition-opacity text-white rounded-xl py-3 font-semibold",
+                    formFieldInput: "rounded-xl border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1673FF]/50 py-3 px-4",
                     footerAction: "hidden", // Hide 'Don't have an account' from Clerk to use ours below
-                    footer: "hidden",
-                    dividerRow: "hidden"
                   }
                 }}
               />
