@@ -21,18 +21,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded: isSessionLoaded, signOut: clerkSignOut } = useClerkAuth();
   const clerk = useClerk();
   
+  // Get all emails from Clerk user, not just primary
   const email = user?.primaryEmailAddress?.emailAddress;
+  const allEmails = user?.emailAddresses?.map((e: any) => e.emailAddress) ?? [];
+  
+  // Try primary email first for Convex lookup
+  const primaryEmail = email ?? allEmails[0] ?? null;
 
   // Reactively fetch user profile from Convex
   const profileRaw = useQuery(
     api.profiles.getByEmail,
-    email ? { email } : "skip"
+    primaryEmail ? { email: primaryEmail } : "skip"
   );
   
-  const isProfileLoading = email ? profileRaw === undefined : false;
+  const isProfileLoading = primaryEmail ? profileRaw === undefined : false;
   const loading = !isUserLoaded || !isSessionLoaded || isProfileLoading;
   
-  console.log('Auth State:', { isUserLoaded, isSessionLoaded, email, isProfileLoading, loading, profileRaw });
+  console.log('Auth State:', { isUserLoaded, isSessionLoaded, email, allEmails, primaryEmail, isProfileLoading, loading, profileRaw: profileRaw === undefined ? 'loading...' : profileRaw });
   
   // Manage explicit state so it aligns with previous component expectations
   const [profile, setProfile] = useState<Profile | null>(null);
