@@ -1,13 +1,13 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useUser, useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Profile } from '../types/database';
 
 interface AuthContextType {
-  user: any | null; // Clerk user
+  user: any | null;
   profile: Profile | null;
-  session: any | null; // Clerk session (unused directly by old code format usually)
+  session: any | null;
   loading: boolean;
   signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -19,56 +19,39 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded: isUserLoaded } = useUser();
   const { isLoaded: isSessionLoaded, signOut: clerkSignOut } = useClerkAuth();
-  const clerk = useClerk();
+  useClerk(); // keep Clerk initialized
   
-  // Get all emails from Clerk user, not just primary
-  const email = user?.primaryEmailAddress?.emailAddress;
-  const allEmails = user?.emailAddresses?.map((e: any) => e.emailAddress) ?? [];
-  
-  // Try primary email first for Convex lookup
-  const primaryEmail = email ?? allEmails[0] ?? null;
+  // Get primary email from Clerk user (fallback to first email if primary not set)
+  const primaryEmail = user?.primaryEmailAddress?.emailAddress 
+    ?? user?.emailAddresses?.[0]?.emailAddress 
+    ?? null;
 
-  // Reactively fetch user profile from Convex
+  // Reactively fetch user profile from Convex by email
   const profileRaw = useQuery(
     api.profiles.getByEmail,
     primaryEmail ? { email: primaryEmail } : "skip"
   );
   
+  // loading is true until both Clerk AND Convex have finished loading
   const isProfileLoading = primaryEmail ? profileRaw === undefined : false;
   const loading = !isUserLoaded || !isSessionLoaded || isProfileLoading;
   
-  console.log('Auth State:', { isUserLoaded, isSessionLoaded, email, allEmails, primaryEmail, isProfileLoading, loading, profileRaw: profileRaw === undefined ? 'loading...' : profileRaw });
-  
-  // Manage explicit state so it aligns with previous component expectations
-  const [profile, setProfile] = useState<Profile | null>(null);
+  // Compute profile DIRECTLY from profileRaw in same render cycle.
+  // IMPORTANT: Do NOT use useState + useEffect here — that causes a race condition
+  // where loading=false but profile=null for one render, causing ProtectedRoute to
+  // redirect to /unauthorized prematurely.
+  const profile = useMemo<Profile | null>(() => {
+    if (!profileRaw) return null;
+    if (profileRaw.is_active === false) return null;
+    return { ...profileRaw, id: profileRaw._id } as Profile;
+  }, [profileRaw]);
 
-  useEffect(() => {
-    if (profileRaw !== undefined) {
-      if (profileRaw === null) {
-          setProfile(null);
-      } else if (profileRaw.is_active === false) {
-          clerkSignOut(); // User is disabled mapping
-          setProfile(null);
-      } else {
-          setProfile(prev => {
-              if (prev && prev.id === profileRaw._id && prev.updated_at === profileRaw.updated_at) {
-                  return prev; // Break the infinite render loop
-              }
-              return {
-                  ...profileRaw,
-                  id: profileRaw._id
-              } as Profile;
-          });
-      }
-    } else {
-       if (!email) {
-           setProfile(null);
-       }
-    }
-  }, [profileRaw, email, clerkSignOut]);
+  console.log('Auth State:', { 
+    isUserLoaded, isSessionLoaded, primaryEmail, 
+    isProfileLoading, loading, 
+    profile: profile ? { email: profile.email, role: profile.role } : null 
+  });
 
-  // Expose mock signIn if needed, though Clerk handles its own login forms, 
-  // keeping the signature doesn't break dependent components immediately.
   const signIn = async () => {
     return { error: new Error('Please use Clerk Login components.') };
   };
@@ -78,8 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    // Convex useQuery auto-refreshes component on data change, 
-    // so this is largely a no-op but we keep it for API compatibility.
+    // Convex useQuery auto-refreshes on data changes — no-op kept for API compatibility
   };
 
   return (
