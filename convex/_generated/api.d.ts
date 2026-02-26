@@ -9,8 +9,10 @@
  */
 
 import type * as activity_logs from "../activity_logs.js";
+import type * as announcements from "../announcements.js";
 import type * as customers from "../customers.js";
 import type * as departments from "../departments.js";
+import type * as incentives from "../incentives.js";
 import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
 import type * as payments from "../payments.js";
@@ -18,6 +20,7 @@ import type * as profiles from "../profiles.js";
 import type * as projects from "../projects.js";
 import type * as sales from "../sales.js";
 import type * as seed from "../seed.js";
+import type * as site_visits from "../site_visits.js";
 import type * as targets from "../targets.js";
 
 import type {
@@ -28,8 +31,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activity_logs: typeof activity_logs;
+  announcements: typeof announcements;
   customers: typeof customers;
   departments: typeof departments;
+  incentives: typeof incentives;
   migration: typeof migration;
   notifications: typeof notifications;
   payments: typeof payments;
@@ -37,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   sales: typeof sales;
   seed: typeof seed;
+  site_visits: typeof site_visits;
   targets: typeof targets;
 }>;
 

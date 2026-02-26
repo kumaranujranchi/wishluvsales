@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 
 export const log = mutation({
   args: {
@@ -12,5 +12,11 @@ export const log = mutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("activity_logs", args);
+  },
+});
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("activity_logs").order("desc").take(100);
   },
 });
