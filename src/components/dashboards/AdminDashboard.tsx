@@ -101,7 +101,14 @@ export function AdminDashboard() {
 
 
   useEffect(() => {
-    loadDashboardData();
+    // Add a timeout so the spinner never hangs indefinitely if Supabase is unavailable
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    loadDashboardData().finally(() => {
+      clearTimeout(timeout);
+    });
   }, []);
 
   // Filter Leaderboard Data
