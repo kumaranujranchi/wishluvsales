@@ -47,14 +47,9 @@ export function LoginPage() {
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
             </div>
 
-            {/* Clerk SignIn Section */}
-            <div className="px-6 py-8 flex justify-center">
               <SignIn 
-                routing="path" 
-                path="/login"
                 fallbackRedirectUrl="/dashboard"
               />
-            </div>
             
             {/* Security Badge */}
             <div className="px-8 pb-6 bg-white/95">
