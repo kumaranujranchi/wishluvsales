@@ -20,12 +20,12 @@ interface SiteVisitRequestFormProps {
 export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit }: SiteVisitRequestFormProps) {
     const { user } = useAuth();
     const dialog = useDialog();
-    const rawProjects = useQuery((api as any).projects.listAll || (api as any).projects.list);
+    const rawProjects = useQuery((api as any).projects?.listAll || (api as any).projects?.list);
     
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const createVisit = useMutation((api as any).site_visits.add);
-    const updateVisit = useMutation((api as any).site_visits.update);
+    const createVisit = useMutation((api as any).site_visits?.add);
+    const updateVisit = useMutation((api as any).site_visits?.update);
 
     const projects = useMemo(() => {
         return (rawProjects || []).map((p: any) => ({

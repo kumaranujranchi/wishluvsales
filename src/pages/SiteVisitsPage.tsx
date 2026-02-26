@@ -19,8 +19,8 @@ export function SiteVisitsPage() {
   const { profile } = useAuth();
   const dialog = useDialog();
   
-  const rawVisits = useQuery((api as any).site_visits.listAll);
-  const deleteVisit = useMutation((api as any).site_visits.remove);
+  const rawVisits = useQuery((api as any).site_visits?.listAll);
+  const deleteVisit = useMutation((api as any).site_visits?.remove);
 
   // Modals
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);

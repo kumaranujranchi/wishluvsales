@@ -78,10 +78,10 @@ export function CRMDashboard() {
     const projects = useQuery(api.projects.list);
     const sales = useQuery(api.sales.list);
     const payments = useQuery(api.payments.listAll);
-    const siteVisits = useQuery((api as any).site_visits.listAll);
+    const siteVisits = useQuery((api as any).site_visits?.listAll);
     const segments = useQuery((api as any).departments?.list) || []; // Using generic departments/segments if exists
-    const announcementsRaw = useQuery((api as any).announcements.listAll);
-    const activityLogsRaw = useQuery((api as any).activity_logs.list);
+    const announcementsRaw = useQuery((api as any).announcements?.listAll);
+    const activityLogsRaw = useQuery((api as any).activity_logs?.list);
 
     // Filters
     const [leaderboardTimeFilter, setLeaderboardTimeFilter] = useState<'today' | 'this_week' | 'this_month' | 'this_year'>('this_month');

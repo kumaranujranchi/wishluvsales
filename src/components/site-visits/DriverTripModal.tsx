@@ -20,8 +20,8 @@ export function DriverTripModal({ isOpen, onClose, onSuccess, visit }: DriverTri
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [odometer, setOdometer] = useState('');
 
-    const updateVisit = useMutation((api as any).site_visits.update);
-    const addNotification = useMutation((api as any).notifications.add);
+    const updateVisit = useMutation((api as any).site_visits?.update);
+    const addNotification = useMutation((api as any).notifications?.add);
 
     useEffect(() => {
         if (isOpen) {

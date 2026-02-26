@@ -29,7 +29,7 @@ export function MobileDashboard() {
     const rawProjects = useQuery(api.projects.list) ?? [];
     const rawSales = useQuery(api.sales.list) ?? [];
     const rawPayments = useQuery(api.payments.listAll) ?? [];
-    const rawAnnouncements = useQuery((api as any).announcements.listAll) ?? [];
+    const rawAnnouncements = useQuery((api as any).announcements?.listAll) ?? [];
 
     const loading = rawProfiles === undefined || rawSales === undefined || rawProjects === undefined || rawDepartments === undefined;
 

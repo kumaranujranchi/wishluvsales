@@ -10,7 +10,7 @@ export function IncentiveCenter() {
     const { profile } = useAuth();
     
     // Convex Query
-    const rawIncentives = useQuery((api as any).incentives.listAll);
+    const rawIncentives = useQuery((api as any).incentives?.listAll);
 
     const incentives = useMemo(() => {
         if (!rawIncentives || !profile) return [];

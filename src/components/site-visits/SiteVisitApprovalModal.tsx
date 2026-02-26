@@ -20,10 +20,10 @@ type ActionType = 'approve' | 'decline' | 'clarify';
 export function SiteVisitApprovalModal({ isOpen, onClose, onSuccess, visit }: SiteVisitApprovalModalProps) {
     const { user } = useAuth();
     const dialog = useDialog();
-    const rawProfiles = useQuery((api as any).profiles.list);
+    const rawProfiles = useQuery((api as any).profiles?.list);
     
-    const updateVisit = useMutation((api as any).site_visits.update);
-    const addNotification = useMutation((api as any).notifications.add);
+    const updateVisit = useMutation((api as any).site_visits?.update);
+    const addNotification = useMutation((api as any).notifications?.add);
 
     const drivers = useMemo(() => {
         return (rawProfiles || [])

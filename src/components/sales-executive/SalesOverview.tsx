@@ -22,9 +22,9 @@ export function SalesOverview() {
     const salesRaw = useQuery(api.sales.list);
     const paymentsRaw = useQuery(api.payments.listAll);
     const targetsRaw = useQuery(api.targets.listAll);
-    const incentivesRaw = useQuery((api as any).incentives.listAll); // Cast to any if type inference fails for now
-    const announcementsRaw = useQuery((api as any).announcements.listAll);
-    const activityLogsRaw = useQuery((api as any).activity_logs.list); // Cast to any if type inference fails for now
+    const incentivesRaw = useQuery((api as any).incentives?.listAll); // Cast to any if type inference fails for now
+    const announcementsRaw = useQuery((api as any).announcements?.listAll);
+    const activityLogsRaw = useQuery((api as any).activity_logs?.list); // Cast to any if type inference fails for now
     const projectsRaw = useQuery(api.projects.list);
     const profilesRaw = useQuery(api.profiles.list);
 
