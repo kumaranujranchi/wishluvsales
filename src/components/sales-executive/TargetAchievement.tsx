@@ -1,46 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
-import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { startOfYear, endOfYear, eachMonthOfInterval, format, isSameMonth, parseISO } from 'date-fns';
 
 export function TargetAchievement() {
     const { profile } = useAuth();
-    const [targets, setTargets] = useState<any[]>([]);
-    const [sales, setSales] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    
+    // Fetch data from Convex
+    const rawTargets = useQuery(api.targets.listAll) ?? [];
+    const rawSales = useQuery(api.sales.list) ?? [];
+    
+    const loading = rawTargets === undefined || rawSales === undefined;
 
-    useEffect(() => {
-        if (profile) {
-            loadData();
-        }
-    }, [profile]);
+    // Filter data for the current user
+    const targets = useMemo(() => {
+        if (!profile) return [];
+        return rawTargets.filter((t: any) => t.user_id === profile.id && t.period_type === 'monthly');
+    }, [rawTargets, profile]);
 
-    const loadData = async () => {
-        try {
-            // Load My Targets
-            const { data: targetsData } = await supabase
-                .from('sales_targets')
-                .select('*')
-                .eq('user_id', profile?.id)
-                .eq('period_type', 'monthly');
-
-            // Load My Sales
-            const { data: salesData } = await supabase
-                .from('sales')
-                .select('*')
-                .eq('sales_executive_id', profile?.id);
-
-            if (targetsData) setTargets(targetsData);
-            if (salesData) setSales(salesData);
-        } catch (error) {
-            console.error('Error loading performance data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const sales = useMemo(() => {
+        if (!profile) return [];
+        return rawSales.filter((s: any) => s.sales_executive_id === profile.id);
+    }, [rawSales, profile]);
 
     const chartData = useMemo(() => {
         const yearStart = startOfYear(new Date());
@@ -143,7 +128,7 @@ export function TargetAchievement() {
                                 <YAxis />
                                 <Tooltip
                                     cursor={{ fill: '#f3f4f6' }}
-                                    formatter={(value: number) => [`${value.toLocaleString()} Sq Ft`, '']}
+                                    formatter={(value: any) => [`${(value || 0).toLocaleString()} Sq Ft`, '']}
                                 />
                                 <Legend />
                                 <Bar dataKey="target" fill="#e5e7eb" name="Target" radius={[4, 4, 0, 0]} />

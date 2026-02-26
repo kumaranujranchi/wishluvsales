@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
@@ -9,30 +10,128 @@ import { TrendingUp, DollarSign, Target, Award, Bell, BarChart3, Wallet, Buildin
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { RecentActivityLog } from '../dashboards/widgets/RecentActivityLog';
 import { CelebrationCards } from '../sales-executive/CelebrationCards';
+import { parseISO, isSameMonth, isAfter, startOfMonth, startOfYear } from 'date-fns';
 
 export function ReceptionistDashboard() {
     const { profile } = useAuth();
-    const [stats, setStats] = useState({
-        totalSales: 0,
-        totalRevenue: 0,
-        totalTarget: 0,
-        achievementPercent: 0,
-        totalIncentives: 0,
-        ytdSalesCount: 0,
-        ytdTotalArea: 0,
-        ytdRevenue: 0,
-        ytdPaymentCount: 0,
-        projectStats: [] as { name: string; area: number }[],
-        recentAnnouncements: [] as any[],
-        activityLogs: [] as any[],
-        leaderboard: {
-            monthly: [] as { name: string; area: number; rank: number; image_url?: string }[],
-            yearly: [] as { name: string; area: number; rank: number; image_url?: string }[]
-        }
-    });
-    const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
+    // Convex Queries
+    const salesRaw = useQuery(api.sales.list);
+    const paymentsRaw = useQuery(api.payments.listAll);
+    const targetsRaw = useQuery(api.targets.listAll);
+    const incentivesRaw = useQuery((api as any).incentives.listAll);
+    const announcementsRaw = useQuery((api as any).announcements.listAll);
+    const activityLogsRaw = useQuery((api as any).activity_logs.list);
+    const projectsRaw = useQuery(api.projects.list);
+    const profilesRaw = useQuery(api.profiles.list);
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const stats = useMemo(() => {
+        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !incentivesRaw || !announcementsRaw || !activityLogsRaw || !profilesRaw || !projectsRaw) {
+            return null;
+        }
+
+        const now = new Date();
+        const monthStart = startOfMonth(now);
+        const yearStart = startOfYear(now);
+
+        // Current Month Stats
+        const currentMonthSales = salesRaw.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+        const revenue = currentMonthSales.reduce((sum: number, sale: any) => sum + Number(sale.total_revenue || 0), 0);
+
+        // Target (Global/Aggregate for all users if possible, or just the current user's role context)
+        // For Receptionist, maybe they want to see the total company target?
+        // Let's assume they see a aggregate target or we fallback to 0.
+        const totalTarget = targetsRaw
+            .filter((t: any) => isSameMonth(parseISO(t.start_date || t.period_start), now))
+            .reduce((sum: number, t: any) => sum + (t.target_amount || 0), 0);
+        
+        const achievementPercent = totalTarget > 0 ? (revenue / totalTarget) * 100 : 0;
+
+        // Incentives (YTD)
+        const ytdIncentives = incentivesRaw.filter((inc: any) => inc.calculation_year === now.getFullYear());
+        const totalIncentives = ytdIncentives.reduce((sum: number, inc: any) => sum + Number(inc.total_incentive_amount || 0), 0);
+
+        // YTD Calculations
+        const ytdSales = salesRaw.filter((s: any) => isAfter(parseISO(s.sale_date), yearStart) || isSameMonth(parseISO(s.sale_date), yearStart));
+        const ytdSalesCount = ytdSales.length;
+        const ytdRevenue = ytdSales.reduce((sum: number, sale: any) => sum + Number(sale.total_revenue || 0), 0);
+        const ytdTotalArea = ytdSales.reduce((sum: number, sale: any) => sum + Number(sale.area_sqft || 0), 0);
+
+        // Payments Count for YTD Sales
+        const ytdSaleIds = new Set(ytdSales.map((s: any) => s._id));
+        const ytdPaymentCount = paymentsRaw.filter((p: any) => ytdSaleIds.has(p.sale_id)).length;
+
+        // Project Wise Performance (YTD)
+        const projectAreaMap = new Map<string, number>();
+        ytdSales.forEach((sale: any) => {
+            if (sale.project_id) {
+                const current = projectAreaMap.get(sale.project_id) || 0;
+                projectAreaMap.set(sale.project_id, current + Number(sale.area_sqft || 0));
+            }
+        });
+
+        const projectStats = projectsRaw.map((p: any) => ({
+            name: p.name,
+            area: projectAreaMap.get(p._id) || 0
+        })).sort((a: any, b: any) => b.area - a.area).slice(0, 4);
+
+        // Leaderboard
+        const profileMap = new Map(profilesRaw.map((p: any) => [p._id, { name: p.full_name, image: p.image_url }]));
+
+        const calculateLeaderboard = (data: any[]) => {
+            const map = new Map<string, number>();
+            data.forEach((s: any) => {
+                const current = map.get(s.sales_executive_id) || 0;
+                map.set(s.sales_executive_id, current + Number(s.area_sqft || 0));
+            });
+
+            return Array.from(map.entries())
+                .map(([id, area]) => {
+                    const u = profileMap.get(id);
+                    return {
+                        name: u?.name || 'Unknown',
+                        image_url: u?.image,
+                        area,
+                        id
+                    };
+                })
+                .sort((a, b) => b.area - a.area)
+                .slice(0, 5)
+                .map((item, index) => ({ ...item, rank: index + 1 }));
+        };
+
+        const yearlyLeaderboard = calculateLeaderboard(ytdSales);
+        const monthlyLeaderboard = calculateLeaderboard(currentMonthSales);
+
+        return {
+            totalSales: currentMonthSales.length,
+            totalRevenue: revenue,
+            totalTarget: totalTarget,
+            achievementPercent,
+            totalIncentives,
+            ytdSalesCount,
+            ytdTotalArea,
+            ytdRevenue,
+            ytdPaymentCount,
+            projectStats,
+            recentAnnouncements: announcementsRaw.filter((a: any) => a.is_published).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5),
+            activityLogs: activityLogsRaw.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10),
+            leaderboard: {
+                monthly: monthlyLeaderboard,
+                yearly: yearlyLeaderboard
+            }
+        };
+    }, [profile, salesRaw, paymentsRaw, targetsRaw, incentivesRaw, announcementsRaw, activityLogsRaw, projectsRaw, profilesRaw]);
+
+    if (!stats) return <LoadingSpinner fullScreen />;
+
+    // Mock data for charts
     const salesTrendData = [
         { name: 'Jan', sales: 400000 },
         { name: 'Feb', sales: 300000 },
@@ -49,130 +148,6 @@ export function ReceptionistDashboard() {
     ];
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-    useEffect(() => {
-        loadOverviewData();
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, [profile]);
-
-    const loadOverviewData = async () => {
-        if (!profile?.id) return;
-        try {
-            const now = new Date();
-            const currentMonth = now.getMonth() + 1;
-            const currentYear = now.getFullYear();
-            const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-            const yearStart = `${currentYear}-01-01`;
-
-            const [{ data: salesData }, { data: targetData }, { data: incentiveData }, { data: announcements }, { data: activityLogs }, { data: ytdSalesData }, { data: projectsData }] = await Promise.all([
-                supabase.from('sales').select('total_revenue').gte('sale_date', monthStart),
-                supabase.from('sales_targets').select('target_amount').gte('period_start', monthStart).limit(1).maybeSingle(),
-                supabase.from('incentives').select('*').eq('calculation_year', currentYear),
-                supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(5),
-                supabase.from('activity_log').select('*, user:user_id(full_name)').eq('action', 'SALE_CREATED').order('created_at', { ascending: false }).limit(10),
-                supabase.from('sales').select('id, total_revenue, area_sqft, project_id').gte('sale_date', yearStart),
-                supabase.from('projects').select('id, name'),
-            ]);
-
-            const revenue = salesData?.reduce((sum, sale) => sum + Number(sale.total_revenue), 0) || 0;
-            const target = targetData?.target_amount || 0;
-            const achievement = target > 0 ? (revenue / target) * 100 : 0;
-            const totalIncentives = incentiveData?.reduce((sum, inc) => sum + Number(inc.total_incentive_amount), 0) || 0;
-
-            const ytdSales = ytdSalesData || [];
-            const ytdSalesCount = ytdSales.length;
-            const ytdRevenue = ytdSales.reduce((sum, sale) => sum + Number(sale.total_revenue), 0);
-            const ytdTotalArea = ytdSales.reduce((sum, sale) => sum + Number(sale.area_sqft || 0), 0);
-
-            let ytdPaymentCount = 0;
-            if (ytdSales.length > 0) {
-                const saleIds = ytdSales.map(s => s.id);
-                const { count } = await supabase
-                    .from('payments')
-                    .select('*', { count: 'exact', head: true })
-                    .in('sale_id', saleIds);
-                ytdPaymentCount = count || 0;
-            }
-
-            const projectAreaMap = new Map<string, number>();
-            projectsData?.forEach(p => projectAreaMap.set(p.id, 0));
-
-            ytdSales.forEach(sale => {
-                if (sale.project_id) {
-                    const current = projectAreaMap.get(sale.project_id) || 0;
-                    projectAreaMap.set(sale.project_id, current + Number(sale.area_sqft || 0));
-                }
-            });
-
-            const projectStats = projectsData?.map(p => ({
-                name: p.name,
-                area: projectAreaMap.get(p.id) || 0
-            })).sort((a, b) => b.area - a.area).slice(0, 4) || [];
-
-            const { data: allYearSales } = await supabase
-                .from('sales')
-                .select('sales_executive_id, area_sqft, sale_date')
-                .gte('sale_date', yearStart);
-
-            const { data: allProfiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, image_url');
-
-            const profileMap = new Map(allProfiles?.map(p => [p.id, { name: p.full_name, image: p.image_url }]) || []);
-
-            const calculateLeaderboard = (sales: any[]) => {
-                const map = new Map<string, number>();
-                sales.forEach(s => {
-                    const current = map.get(s.sales_executive_id) || 0;
-                    map.set(s.sales_executive_id, current + Number(s.area_sqft || 0));
-                });
-
-                return Array.from(map.entries())
-                    .map(([id, area]) => {
-                        const user = profileMap.get(id);
-                        return {
-                            name: user?.name || 'Unknown',
-                            image_url: user?.image,
-                            area,
-                            id
-                        };
-                    })
-                    .sort((a, b) => b.area - a.area)
-                    .slice(0, 5)
-                    .map((item, index) => ({ ...item, rank: index + 1 }));
-            };
-
-            const yearlyLeaderboard = calculateLeaderboard(allYearSales || []);
-            const monthlyLeaderboardSales = (allYearSales || []).filter(s => s.sale_date >= monthStart);
-            const monthlyLeaderboard = calculateLeaderboard(monthlyLeaderboardSales);
-
-            setStats({
-                totalSales: salesData?.length || 0,
-                totalRevenue: revenue,
-                totalTarget: target,
-                achievementPercent: achievement,
-                totalIncentives: totalIncentives,
-                ytdSalesCount,
-                ytdTotalArea,
-                ytdRevenue,
-                ytdPaymentCount,
-                projectStats,
-                recentAnnouncements: announcements || [],
-                activityLogs: activityLogs || [],
-                leaderboard: {
-                    monthly: monthlyLeaderboard,
-                    yearly: yearlyLeaderboard
-                }
-            });
-        } catch (error) {
-            console.error('Error loading overview:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) return <LoadingSpinner fullScreen />;
 
     const projectColors = [
         { bg: 'bg-emerald-50', text: 'text-emerald-600' },
@@ -255,7 +230,7 @@ export function ReceptionistDashboard() {
                         <p className="text-xl md:text-3xl font-bold font-mono tracking-wider">
                             {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </p>
-                        <p className="text-blue-100 text-xs md:text-sm font-medium uppercase tracking-widest">
+                        <p className="text-blue-100 text-xs md:text-sm font-medium uppercase tracking-widest" title={currentTime.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}>
                             {currentTime.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                     </div>
@@ -349,7 +324,7 @@ export function ReceptionistDashboard() {
                         <div className="space-y-1">
                             {stats.leaderboard?.monthly.length > 0 ? (
                                 stats.leaderboard.monthly.map((item) => (
-                                    <LeaderboardItem key={item.rank} {...item} />
+                                    <LeaderboardItem key={item.id + '-m'} {...item} />
                                 ))
                             ) : (
                                 <p className="text-center text-gray-500 dark:text-gray-400 py-6">No sales data for this month yet.</p>
@@ -368,7 +343,7 @@ export function ReceptionistDashboard() {
                         <div className="space-y-1">
                             {stats.leaderboard?.yearly.length > 0 ? (
                                 stats.leaderboard.yearly.map((item) => (
-                                    <LeaderboardItem key={item.rank} {...item} />
+                                    <LeaderboardItem key={item.id + '-y'} {...item} />
                                 ))
                             ) : (
                                 <p className="text-center text-gray-500 dark:text-gray-400 py-6">No sales data for this year yet.</p>
@@ -467,8 +442,8 @@ export function ReceptionistDashboard() {
                     <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/10 pb-4"><CardTitle className="flex items-center gap-2 dark:text-white"><Bell size={20} /> Latest Updates</CardTitle></CardHeader>
                     <CardContent>
                         <div className="divide-y divide-gray-100 dark:divide-white/5">
-                            {stats.recentAnnouncements.map((ann) => (
-                                <div key={ann.id} className="py-3">
+                            {stats.recentAnnouncements.map((ann: any) => (
+                                <div key={ann._id || ann.id} className="py-3">
                                     <p className="font-semibold text-gray-800 dark:text-white">{ann.title}</p>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{ann.content}</p>
                                     <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(ann.created_at).toLocaleDateString()}</span>

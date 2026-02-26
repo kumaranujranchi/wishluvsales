@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useDialog } from '../contexts/DialogContext';
 import { Announcement } from '../types/database';
 import { Card, CardContent } from '../components/ui/Card';
@@ -13,11 +14,11 @@ import { Megaphone, Plus, Trash2, Pencil } from 'lucide-react';
 export function AnnouncementsPage() {
   const { user, profile } = useAuth();
   const dialog = useDialog();
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const rawAnnouncements = useQuery((api as any).announcements.listAll);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -26,20 +27,20 @@ export function AnnouncementsPage() {
     isPublished: true
   });
 
+  const createAnnouncement = useMutation((api as any).announcements.add);
+  const updateAnnouncement = useMutation((api as any).announcements.update);
+  const deleteAnnouncement = useMutation((api as any).announcements.remove);
+
+  const announcements = useMemo(() => {
+    return (rawAnnouncements || []).map((ann: any) => ({
+      ...ann,
+      id: ann._id
+    })) as Announcement[];
+  }, [rawAnnouncements]);
+
+  const loading = rawAnnouncements === undefined;
+
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
-
-  useEffect(() => {
-    loadAnnouncements();
-  }, []);
-
-  const loadAnnouncements = async () => {
-    const { data } = await supabase
-      .from('announcements')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data) setAnnouncements(data);
-    setLoading(false);
-  };
 
   const resetForm = () => {
     setFormData({
@@ -77,36 +78,35 @@ export function AnnouncementsPage() {
 
     setIsSubmitting(true);
     try {
+      const now = new Date().toISOString();
       if (editingAnnouncementId) {
         // Update existing announcement
-        const { error } = await supabase
-          .from('announcements')
-          .update({
-            title: formData.title,
-            content: formData.content,
-            is_important: formData.isImportant,
-            is_published: formData.isPublished
-          })
-          .eq('id', editingAnnouncementId);
-
-        if (error) throw error;
-        await dialog.alert('Announcement updated successfully!', { variant: 'success', title: 'Success' });
-      } else {
-        // Create new announcement
-        const { error } = await supabase.from('announcements').insert({
+        await updateAnnouncement({
+          id: editingAnnouncementId,
           title: formData.title,
           content: formData.content,
           is_important: formData.isImportant,
           is_published: formData.isPublished,
-          created_by: user.id
+          updated_at: now
         });
 
-        if (error) throw error;
+        await dialog.alert('Announcement updated successfully!', { variant: 'success', title: 'Success' });
+      } else {
+        // Create new announcement
+        await createAnnouncement({
+          title: formData.title,
+          content: formData.content,
+          is_important: formData.isImportant,
+          is_published: formData.isPublished,
+          created_by: user.id as string,
+          created_at: now,
+          updated_at: now
+        });
+
         await dialog.alert('Announcement created successfully!', { variant: 'success', title: 'Success' });
       }
 
       handleCloseModal();
-      loadAnnouncements();
     } catch (error) {
       console.error('Error saving announcement:', error);
       await dialog.alert('Failed to save announcement', { variant: 'danger', title: 'Error' });
@@ -127,9 +127,7 @@ export function AnnouncementsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('announcements').delete().eq('id', id);
-      if (error) throw error;
-      loadAnnouncements();
+      await deleteAnnouncement({ id: id as any });
       await dialog.alert('Announcement deleted.', { variant: 'success', title: 'Deleted' });
     } catch (error) {
       console.error('Error deleting announcement:', error);

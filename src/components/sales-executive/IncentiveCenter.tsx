@@ -1,43 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Incentive } from '../../types/database';
 import { CheckCircle, Clock, Lock } from 'lucide-react';
 
 export function IncentiveCenter() {
     const { profile } = useAuth();
-    const [incentives, setIncentives] = useState<Incentive[]>([]);
+    
+    // Convex Query
+    const rawIncentives = useQuery((api as any).incentives.listAll);
 
-    useEffect(() => {
-        loadIncentives();
-    }, [profile]);
-
-    const loadIncentives = async () => {
-        if (!profile?.id) return;
-        try {
-            const { data, error } = await supabase
-                .from('incentives')
-                .select('*')
-                .eq('sales_executive_id', profile.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setIncentives(data || []);
-        } catch (error) {
-            console.error('Error loading incentives:', error);
-        } finally {
-
-        }
-    };
+    const incentives = useMemo(() => {
+        if (!rawIncentives || !profile) return [];
+        return rawIncentives.filter((inc: any) => inc.sales_executive_id === profile.id);
+    }, [rawIncentives, profile]);
 
     const calculateTotalEarned = () => {
-        return incentives.reduce((sum, inc) => sum + Number(inc.total_incentive_amount), 0);
+        return incentives.reduce((sum: number, inc: any) => sum + Number(inc.total_incentive_amount), 0);
     };
 
     const calculateTotalPaid = () => {
-        return incentives.reduce((sum, inc) => {
+        return incentives.reduce((sum: number, inc: any) => {
             let paid = 0;
             if (inc.installment_1_paid) paid += Number(inc.installment_1_amount);
             if (inc.installment_2_paid) paid += Number(inc.installment_2_amount);
@@ -86,10 +71,10 @@ export function IncentiveCenter() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                                {incentives.map((inc) => (
-                                    <tr key={inc.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+                                {incentives.map((inc: any) => (
+                                    <tr key={inc._id || inc.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
                                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-200">{inc.calculation_month} {inc.calculation_year}</td>
-                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{inc.sale_id.slice(0, 8)}...</td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{(inc.sale_id as string).slice(0, 8)}...</td>
                                         <td className="px-4 py-3 text-right font-bold text-[#0A1C37] dark:text-white">{formatCurrency(inc.total_incentive_amount)}</td>
                                         <td className="px-4 py-3 text-center">
                                             {inc.is_locked ? (

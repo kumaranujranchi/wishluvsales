@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
-import { supabase } from '../lib/supabase';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { SiteVisit } from '../types/database';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -17,8 +18,9 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 export function SiteVisitsPage() {
   const { profile } = useAuth();
   const dialog = useDialog();
-  const [visits, setVisits] = useState<SiteVisit[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const rawVisits = useQuery((api as any).site_visits.listAll);
+  const deleteVisit = useMutation((api as any).site_visits.remove);
 
   // Modals
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -37,37 +39,25 @@ export function SiteVisitsPage() {
   const isDriver = profile?.role === 'driver';
   const isSales = profile?.role === 'sales_executive' || profile?.role === 'team_leader';
 
-  useEffect(() => {
-    loadVisits();
-  }, [filterStatus]); // Reload when filter changes? Or just filter client side? Let's filter client side for smaller lists, but fetch all. 
-  // Actually simpler to just load once and filter in render, or reload on specific actions.
-
-  const loadVisits = async () => {
-    setLoading(true);
-    let query = supabase
-      .from('site_visits')
-      .select(`
-        *,
-        driver:driver_id (full_name),
-        requester:requested_by (full_name)
-      `)
-      .order('visit_date', { ascending: false });
-
-    // Filter last 30 days for non-admins (and non-directors)
+  const visits = useMemo(() => {
+    if (!rawVisits) return [];
+    
+    let filtered = rawVisits;
+    
+    // Filter last 30 days for non-admins
     if (!canViewAll) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      query = query.gte('visit_date', thirtyDaysAgo.toISOString());
+      filtered = filtered.filter((v: any) => new Date(v.visit_date) >= thirtyDaysAgo);
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error('Error loading visits:', error);
-    } else {
-      setVisits(data as any || []);
-    }
-    setLoading(false);
-  };
+    return filtered.map((v: any) => ({
+      ...v,
+      id: v._id
+    })) as SiteVisit[];
+  }, [rawVisits, canViewAll]);
+
+  const loading = rawVisits === undefined;
 
   const toggleExpand = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -87,9 +77,7 @@ export function SiteVisitsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('site_visits').delete().eq('id', id);
-      if (error) throw error;
-      loadVisits();
+      await deleteVisit({ id: id as any });
       await dialog.alert('Site visit request deleted.', { variant: 'success', title: 'Deleted' });
     } catch (error) {
       console.error('Error deleting site visit:', error);
@@ -108,10 +96,10 @@ export function SiteVisitsPage() {
     }
   };
 
-  const filteredVisits = visits.filter(v => {
-    if (filterStatus === 'all') return true;
-    return v.status === filterStatus;
-  });
+  const filteredVisits = useMemo(() => {
+    if (filterStatus === 'all') return visits;
+    return visits.filter(v => v.status === filterStatus);
+  }, [visits, filterStatus]);
 
   return (
     <div className="space-y-6">
@@ -321,21 +309,18 @@ export function SiteVisitsPage() {
       <SiteVisitRequestForm
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
-        onSuccess={loadVisits}
         editingVisit={selectedVisit}
       />
 
       <SiteVisitApprovalModal
         isOpen={isApprovalModalOpen}
         onClose={() => setIsApprovalModalOpen(false)}
-        onSuccess={loadVisits}
         visit={selectedVisit}
       />
 
       <DriverTripModal
         isOpen={isDriverModalOpen}
         onClose={() => setIsDriverModalOpen(false)}
-        onSuccess={loadVisits}
         visit={selectedVisit}
       />
 

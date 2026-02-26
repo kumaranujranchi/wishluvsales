@@ -18,6 +18,7 @@ import type * as profiles from "../profiles.js";
 import type * as projects from "../projects.js";
 import type * as sales from "../sales.js";
 import type * as seed from "../seed.js";
+import type * as targets from "../targets.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   sales: typeof sales;
   seed: typeof seed;
+  targets: typeof targets;
 }>;
 
 /**

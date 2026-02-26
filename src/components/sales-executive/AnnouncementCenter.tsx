@@ -1,35 +1,25 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState, useMemo } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { Card, CardContent } from '../ui/Card';
 import { Announcement } from '../../types/database';
 import { Search, Bookmark } from 'lucide-react';
 import { Input } from '../ui/Input';
 
 export function AnnouncementCenter() {
-    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-    const [loading, setLoading] = useState(true);
+    const rawAnnouncements = useQuery((api as any).announcements.listAll);
     const [filter, setFilter] = useState('');
 
-    useEffect(() => {
-        loadAnnouncements();
-    }, []);
+    const announcements = useMemo(() => {
+        return (rawAnnouncements || [])
+            .filter((ann: any) => ann.is_published)
+            .map((ann: any) => ({
+                ...ann,
+                id: ann._id
+            })) as Announcement[];
+    }, [rawAnnouncements]);
 
-    const loadAnnouncements = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('announcements')
-                .select('*')
-                .eq('is_published', true)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setAnnouncements(data || []);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loading = rawAnnouncements === undefined;
 
     const filteredList = announcements.filter(a =>
         a.title.toLowerCase().includes(filter.toLowerCase()) ||

@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon-v2.png', 'logo.png'],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5242880 // 5 MB
+      },
       manifest: {
         name: 'WishPro - Sales Management',
         short_name: 'WishPro',

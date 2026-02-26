@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDialog } from '../../contexts/DialogContext';
-import { supabase } from '../../lib/supabase';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { SiteVisit } from '../../types/database';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -10,7 +11,7 @@ import { Navigation } from 'lucide-react';
 interface DriverTripModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess?: () => void;
     visit: SiteVisit | null;
 }
 
@@ -18,6 +19,9 @@ export function DriverTripModal({ isOpen, onClose, onSuccess, visit }: DriverTri
     const dialog = useDialog();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [odometer, setOdometer] = useState('');
+
+    const updateVisit = useMutation((api as any).site_visits.update);
+    const addNotification = useMutation((api as any).notifications.add);
 
     useEffect(() => {
         if (isOpen) {
@@ -45,7 +49,8 @@ export function DriverTripModal({ isOpen, onClose, onSuccess, visit }: DriverTri
 
         setIsSubmitting(true);
         try {
-            const updateData: any = {};
+            const now = new Date().toISOString();
+            const updateData: any = { updated_at: now };
             let newStatus = '';
 
             if (visit.status === 'approved') {
@@ -60,25 +65,24 @@ export function DriverTripModal({ isOpen, onClose, onSuccess, visit }: DriverTri
                 return;
             }
 
-            const { error } = await supabase
-                .from('site_visits')
-                .update(updateData)
-                .eq('id', visit.id);
-
-            if (error) throw error;
+            await updateVisit({
+                id: (visit as any)._id || visit.id,
+                ...updateData
+            });
 
             // Notify Requester
-            await supabase.from('notifications').insert({
-                user_id: visit.requested_by,
+            await addNotification({
+                user_id: visit.requested_by as string,
                 title: `Site Visit ${newStatus}`,
                 message: `The site visit for ${visit.customer_name} has been marked as ${newStatus}. ${visit.status === 'trip_started' ? `Total distance: ${(reading - (visit.start_odometer || 0)).toFixed(1)} km` : ''}`,
                 type: 'info',
                 related_entity_type: 'site_visit',
-                related_entity_id: visit.id
+                related_entity_id: (visit as any)._id || visit.id,
+                created_at: now
             });
 
             await dialog.alert(`Trip status updated to ${newStatus}.`, { variant: 'success' });
-            onSuccess();
+            onSuccess?.();
             onClose();
         } catch (err) {
             console.error(err);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../../convex/_generated/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../ui/Card';
 import { Calendar, Gift, Heart, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
 import {
@@ -19,33 +20,22 @@ interface EventItem {
 }
 
 export function UpcomingEvents() {
+    const rawProfiles = useQuery(api.profiles.list);
     const [events, setEvents] = useState<EventItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const loading = rawProfiles === undefined;
     const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
-        loadEvents();
-    }, []);
-
-    const loadEvents = async () => {
-        try {
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, image_url, dob, marriage_anniversary, joining_date')
-                .eq('is_active', true);
-
-            if (error) throw error;
-
-            if (profiles) {
-                const processedEvents = processEvents(profiles);
-                setEvents(processedEvents);
-            }
-        } catch (err) {
-            console.error('Error loading events:', err);
-        } finally {
-            setLoading(false);
+        if (rawProfiles) {
+            // Map Convex _id to id for compatibility
+            const processedProfiles = rawProfiles.map((p: any) => ({
+                ...p,
+                id: p._id
+            }));
+            const processedEvents = processEvents(processedProfiles);
+            setEvents(processedEvents);
         }
-    };
+    }, [rawProfiles]);
 
     const processEvents = (profiles: Partial<Profile>[]): EventItem[] => {
         const today = startOfDay(new Date());

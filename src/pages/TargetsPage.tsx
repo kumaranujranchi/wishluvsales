@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { Target, Sale, Profile } from '../types/database';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -12,12 +11,37 @@ import { isSameMonth, parseISO, startOfYear, endOfYear, eachMonthOfInterval, for
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { calculateTeamPerformance } from '../utils/targetCalculations';
 
+// Convex Imports
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
+
 export function TargetsPage() {
   const { profile } = useAuth();
   const dialog = useDialog();
-  const [targets, setTargets] = useState<(Target & { profile: Profile })[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  
+  // Replace standard states with reactive Convex queries
+  const allTargets = useQuery(api.targets.listAll) || [];
+  const allSales = useQuery(api.sales.list) || [];
+  const allProfiles = useQuery(api.profiles.list) || [];
+
+  // Derived state mapping Convex to our existing types to limit refactoring damage
+  const targets = useMemo(() => {
+    return allTargets.map(t => {
+      const p = allProfiles.find(prof => prof._id === t.user_id);
+      return { ...t, profile: p, id: t._id };
+    });
+  }, [allTargets, allProfiles]);
+
+  const sales = useMemo(() => {
+    return allSales.map(s => ({ ...s, id: s._id }));
+  }, [allSales]);
+
+  const profiles = useMemo(() => {
+    return allProfiles.filter(p => p.role === 'sales_executive' || p.role === 'team_leader').map(p => ({ ...p, id: p._id }));
+  }, [allProfiles]);
+
+  const removeTarget = useMutation(api.targets.remove);
 
   // Roles
   const isExecutive = profile?.role === 'sales_executive';
@@ -34,81 +58,13 @@ export function TargetsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
 
-  useEffect(() => {
-    if (profile) {
-      if (isExecutive) {
-        setSelectedUserId(profile.id);
-        setViewBy('individual');
-      }
-      // Auto-select manager for Team Leaders
-      if (profile.role === 'team_leader') {
-        setManagerFilter(profile.id);
-      }
-      loadData();
-    }
-  }, [profile]);
-
   // Management Section States
   const [managerFilter, setManagerFilter] = useState('');
   const [execFilter, setExecFilter] = useState('');
-  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
-  const [managementData, setManagementData] = useState<(Target & { profile: Profile })[]>([]);
-
-  const loadAssignments = useCallback(async () => {
-    setIsLoadingAssignments(true);
-    try {
-      const { data, error } = await supabase
-        .from('sales_targets')
-        .select('*, profile:user_id(*)')
-        .eq('user_id', execFilter)
-        .eq('period_type', 'monthly')
-        .order('start_date', { ascending: false });
-
-      if (error) throw error;
-      setManagementData(data as (Target & { profile: Profile })[] || []);
-      setAssignmentsLoaded(true);
-    } catch (err) {
-      console.error("Error loading assignments:", err);
-      dialog.alert("Failed to load targets. Please try again.");
-    } finally {
-      setIsLoadingAssignments(false);
-    }
-  }, [execFilter, dialog]);
-
-  const loadData = useCallback(async () => {
-    // Load Targets (Monthly Only)
-    const { data: targetsData, error: targetError } = await supabase
-      .from('sales_targets')
-      .select('*, profile:user_id(*)')
-      .eq('period_type', 'monthly')
-      .order('start_date', { ascending: false });
-
-    if (targetError) {
-      console.error("Error loading targets:", targetError);
-    }
-
-    // Load Sales
-    const { data: salesData } = await supabase
-      .from('sales')
-      .select('*');
-
-    // Load Profiles for Dropdown
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('role', ['sales_executive', 'team_leader'])
-      .eq('is_active', true);
-
-    if (targetsData) setTargets(targetsData as (Target & { profile: Profile })[]);
-    if (salesData) setSales(salesData);
-    if (profilesData) setProfiles(profilesData);
-
-    // Set default selected user if not set (and not executive)
-    if (!isExecutive && profilesData && profilesData.length > 0 && !selectedUserId) {
-      setSelectedUserId(profilesData[0].id);
-    }
-  }, [isExecutive, selectedUserId]); // Removed profilesData dependency to avoid loops, though strictly it should be handled
+  
+  // Replace assignments loader
+  let managementData = targets.filter(t => t.user_id === execFilter && t.period_type === 'monthly');
+  managementData.sort((a, b) => new Date(b.start_date!).getTime() - new Date(a.start_date!).getTime());
 
   useEffect(() => {
     if (profile) {
@@ -120,17 +76,22 @@ export function TargetsPage() {
       if (profile.role === 'team_leader') {
         setManagerFilter(profile.id);
       }
-      loadData();
     }
-  }, [profile, isExecutive, loadData]);
+  }, [profile, isExecutive]);
+
+  // Set default selected user if not set (and not executive)
+  useEffect(() => {
+    if (!isExecutive && profiles.length > 0 && !selectedUserId) {
+        setSelectedUserId(profiles[0].id);
+    }
+  }, [isExecutive, profiles, selectedUserId]);
 
   const handleDelete = async (id: string) => {
     if (!await dialog.confirm('Delete this target assignment?')) return;
-    const { error } = await supabase.from('sales_targets').delete().eq('id', id);
-    if (error) {
-      await dialog.alert('Failed to delete.');
-    } else {
-      loadData();
+    try {
+        await removeTarget({ id: id as Id<"targets"> });
+    } catch (e) {
+        await dialog.alert('Failed to delete.');
     }
   };
 
@@ -459,7 +420,6 @@ export function TargetsPage() {
                 onChange={(e: any) => {
                   setManagerFilter(e.target.value);
                   setExecFilter(''); // Reset exec when TL changes
-                  setAssignmentsLoaded(false); // Reset data
                 }}
                 options={profiles
                   .filter(p => p.role === 'team_leader')
@@ -474,7 +434,6 @@ export function TargetsPage() {
                 value={execFilter}
                 onChange={(e: any) => {
                   setExecFilter(e.target.value);
-                  setAssignmentsLoaded(false);
                 }}
                 options={[
                   // Include the TL themselves in the management options
@@ -490,19 +449,10 @@ export function TargetsPage() {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={loadAssignments}
-                  disabled={!managerFilter || !execFilter || isLoadingAssignments}
-                  className="mb-[2px]"
-                >
-                  {isLoadingAssignments ? 'Loading...' : 'Load Data'}
-                </Button>
-                <Button
                   variant="outline"
                   onClick={() => {
                     setManagerFilter('');
                     setExecFilter('');
-                    setAssignmentsLoaded(false);
-                    setManagementData([]);
                   }}
                   disabled={!managerFilter && !execFilter}
                   className="mb-[2px] bg-white dark:bg-transparent dark:text-white dark:hover:bg-white/10"
@@ -513,7 +463,7 @@ export function TargetsPage() {
             </div>
 
             {/* Instructional Text or Data Table */}
-            {!assignmentsLoaded ? (
+            {!execFilter ? (
               <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-white/5 rounded-lg border-2 border-dashed border-gray-200 dark:border-white/10">
                 <TargetIcon size={48} className="mx-auto mb-3 opacity-20" />
                 <p className="font-medium">Select a Team Leader and then a specific User (Leader or Executive) to view and manage assignments.</p>
@@ -564,10 +514,7 @@ export function TargetsPage() {
       <TargetFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {
-          loadData();
-          if (assignmentsLoaded) loadAssignments();
-        }}
+        onSuccess={() => {}}
         editingTarget={editingTarget}
       />
     </div>

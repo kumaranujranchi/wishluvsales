@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import {
     TrendingUp,
     DollarSign,
@@ -21,159 +22,123 @@ import { formatCurrency } from '../../utils/format';
 
 export function MobileDashboard() {
     const { profile } = useAuth();
-    const [loading, setLoading] = useState(true);
 
-    // State from AdminDashboard logic
-    const [stats, setStats] = useState<any>({
-        monthlySales: 0,
-        monthlyRevenue: 0,
-        ytdSales: 0,
-        ytdRevenue: 0,
-        totalProjects: 0,
-        totalTeamMembers: 0,
-        totalDepartments: 0,
-        projectStats: [],
-    });
-    const [salesChartData, setSalesChartData] = useState<any[]>([]);
-    const [recentSales, setRecentSales] = useState<any[]>([]);
-    const [announcements, setAnnouncements] = useState<any[]>([]);
-    const [topPerformers, setTopPerformers] = useState<any[]>([]);
+    // Fetch data from Convex
+    const rawProfiles = useQuery(api.profiles.list) ?? [];
+    const rawDepartments = useQuery(api.departments.list) ?? [];
+    const rawProjects = useQuery(api.projects.list) ?? [];
+    const rawSales = useQuery(api.sales.list) ?? [];
+    const rawPayments = useQuery(api.payments.listAll) ?? [];
+    const rawAnnouncements = useQuery((api as any).announcements.listAll) ?? [];
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const loading = rawProfiles === undefined || rawSales === undefined || rawProjects === undefined || rawDepartments === undefined;
 
-    const loadData = async () => {
-        try {
-            const now = new Date();
-            const currentMonth = now.getMonth() + 1;
-            const currentYear = now.getFullYear();
-            const yearStart = `${currentYear}-01-01`;
-            const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    // Computed Stats
+    const { stats, salesChartData, recentSales, announcements, topPerformers } = useMemo(() => {
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        const yearStart = `${currentYear}-01-01`;
+        const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
 
-            // 1. Fetch Metrics
-            const [
-                { count: projectCount },
-                { count: teamCount },
-                { count: deptCount },
-                { data: projectsData },
-                { data: allSales },
-                { data: allPayments }
-            ] = await Promise.all([
-                supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('departments').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('projects').select('id, name'),
-                supabase.from('sales').select('*, profile:sales_executive_id(full_name, image_url, role)').gte('sale_date', yearStart),
-                supabase.from('payments').select('*').gte('payment_date', yearStart)
-            ]);
+        const profilesMap = new Map((rawProfiles || []).map((p: any) => [p._id, p]));
+        const projectsMap = new Map((rawProjects || []).map((p: any) => [p._id, p]));
 
-            // Calculate Stats
-            let mSales = 0, mRevenue = 0, ySales = 0, yRevenue = 0;
-            const projectAreaMap = new Map();
-            const salesByMonth = new Map();
-            const leaderboardMap = new Map();
+        let mSales = 0, mRevenue = 0, ySales = 0, yRevenue = 0;
+        const projectAreaMap = new Map();
+        const salesByMonth = new Map();
+        const leaderboardMap = new Map();
 
-            // Init months
-            for (let i = 0; i < 12; i++) {
-                const d = new Date(currentYear, i, 1);
-                if (d > now) break;
-                const key = d.toLocaleString('default', { month: 'short' });
-                salesByMonth.set(key, { sales: 0, revenue: 0, collections: 0 });
+        // Init months
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(currentYear, i, 1);
+            if (d > now) break;
+            const key = d.toLocaleString('default', { month: 'short' });
+            salesByMonth.set(key, { sales: 0, revenue: 0, collections: 0 });
+        }
+
+        (rawSales || []).forEach((sale: any) => {
+            if (sale.sale_date < yearStart) return;
+            
+            ySales++;
+            yRevenue += Number(sale.total_revenue || 0);
+            if (sale.sale_date >= monthStart) {
+                mSales++;
+                mRevenue += Number(sale.total_revenue || 0);
             }
 
-            allSales?.forEach((sale: any) => {
-                ySales++;
-                yRevenue += Number(sale.total_revenue);
-                if (sale.sale_date >= monthStart) {
-                    mSales++;
-                    mRevenue += Number(sale.total_revenue);
-                }
+            if (sale.project_id) {
+                const cur = projectAreaMap.get(sale.project_id) || 0;
+                projectAreaMap.set(sale.project_id, cur + Number(sale.area_sqft || 0));
+            }
 
-                // Helper for project stats
-                if (sale.project_id) {
-                    const cur = projectAreaMap.get(sale.project_id) || 0;
-                    projectAreaMap.set(sale.project_id, cur + Number(sale.area_sqft || 0));
-                }
+            const d = new Date(sale.sale_date);
+            const key = d.toLocaleString('default', { month: 'short' });
+            if (salesByMonth.has(key)) {
+                const cur = salesByMonth.get(key);
+                cur.sales += 1;
+                cur.revenue += Number(sale.total_revenue || 0);
+                salesByMonth.set(key, cur);
+            }
 
-                // Chart Data
-                const d = new Date(sale.sale_date);
-                const key = d.toLocaleString('default', { month: 'short' });
-                if (salesByMonth.has(key)) {
-                    const cur = salesByMonth.get(key);
-                    cur.sales += 1;
-                    cur.revenue += Number(sale.total_revenue);
-                    salesByMonth.set(key, cur);
-                }
+            if (sale.sales_executive_id) {
+                const prof = profilesMap.get(sale.sales_executive_id);
+                const u = leaderboardMap.get(sale.sales_executive_id) || {
+                    id: sale.sales_executive_id,
+                    name: prof?.full_name || 'Unknown',
+                    image: prof?.image_url,
+                    sales: 0
+                };
+                u.sales++;
+                leaderboardMap.set(sale.sales_executive_id, u);
+            }
+        });
 
-                // Leaderboard
-                if (sale.sales_executive_id) {
-                    const u = leaderboardMap.get(sale.sales_executive_id) || {
-                        id: sale.sales_executive_id,
-                        name: sale.profile?.full_name || 'Unknown',
-                        image: sale.profile?.image_url,
-                        sales: 0
-                    };
-                    u.sales++;
-                    leaderboardMap.set(sale.sales_executive_id, u);
-                }
-            });
+        (rawPayments || []).forEach((pay: any) => {
+            if (pay.payment_date < yearStart) return;
+            const d = new Date(pay.payment_date);
+            const key = d.toLocaleString('default', { month: 'short' });
+            if (salesByMonth.has(key)) {
+                const cur = salesByMonth.get(key);
+                cur.collections += Number(pay.amount || 0);
+                salesByMonth.set(key, cur);
+            }
+        });
 
-            allPayments?.forEach((pay: any) => {
-                const d = new Date(pay.payment_date);
-                const key = d.toLocaleString('default', { month: 'short' });
-                if (salesByMonth.has(key)) {
-                    const cur = salesByMonth.get(key);
-                    cur.collections += Number(pay.amount);
-                    salesByMonth.set(key, cur);
-                }
-            });
+        const projStats = (rawProjects || []).filter((p: any) => p.is_active).map((p: any) => ({
+            name: p.name,
+            area: projectAreaMap.get(p._id) || 0
+        })).sort((a, b) => b.area - a.area).slice(0, 4);
 
-            // Format Project Stats
-            const projStats = projectsData?.map(p => ({
-                name: p.name,
-                area: projectAreaMap.get(p.id) || 0
-            })).sort((a, b) => b.area - a.area).slice(0, 4) || [];
+        const chartData = Array.from(salesByMonth.entries()).map(([name, val]) => ({
+            name, ...val
+        }));
 
-            // Format Chart
-            const chartData = Array.from(salesByMonth.entries()).map(([name, val]) => ({
-                name, ...val
-            }));
+        const topUsers = Array.from(leaderboardMap.values()).sort((a: any, b: any) => b.sales - a.sales).slice(0, 5);
 
-            // Top Performers
-            const topUsers = Array.from(leaderboardMap.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
+        const recentSalesList = (rawSales || []).slice(0, 5).map((sale: any) => ({
+            ...sale,
+            project: projectsMap.get(sale.project_id),
+            profile: profilesMap.get(sale.sales_executive_id)
+        }));
 
-            setStats({
+        return {
+            stats: {
                 monthlySales: mSales,
                 monthlyRevenue: mRevenue,
                 ytdSales: ySales,
                 ytdRevenue: yRevenue,
-                totalProjects: projectCount || 0,
-                totalTeamMembers: teamCount || 0,
-                totalDepartments: deptCount || 0,
+                totalProjects: (rawProjects || []).filter((p: any) => p.is_active).length,
+                totalTeamMembers: (rawProfiles || []).filter((p: any) => p.is_active).length,
+                totalDepartments: (rawDepartments || []).filter((d: any) => d.is_active).length,
                 projectStats: projStats
-            });
-            setSalesChartData(chartData);
-            setTopPerformers(topUsers);
-
-            // Recent Sales (detailed)
-            const { data: recent } = await supabase.from('sales')
-                .select('*, customer:customer_id(name), project:project_id(name), profile:sales_executive_id(full_name)')
-                .order('sale_date', { ascending: false }).limit(5);
-            setRecentSales(recent || []);
-
-            // Announcements
-            const { data: ann } = await supabase.from('announcements')
-                .select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3);
-            setAnnouncements(ann || []);
-
-            setLoading(false);
-
-        } catch (e) {
-            console.error(e);
-            setLoading(false);
-        }
-    };
+            },
+            salesChartData: chartData,
+            recentSales: recentSalesList,
+            announcements: (rawAnnouncements || []).filter((a: any) => a.is_published).slice(0, 3),
+            topPerformers: topUsers
+        };
+    }, [rawProfiles, rawProjects, rawSales, rawPayments, rawAnnouncements]);
 
     if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div></div>;
 
@@ -304,7 +269,7 @@ export function MobileDashboard() {
             {/* 7. Announcements */}
             <div className="space-y-3">
                 <h3 className="font-bold text-slate-800 dark:text-white px-1">Latest News</h3>
-                {announcements.length > 0 ? announcements.map((ann, i) => (
+                {announcements.length > 0 ? announcements.map((ann: any, i: number) => (
                     <div key={i} className="bg-white dark:bg-surface-dark p-4 rounded-xl shadow-card-custom relative overflow-hidden">
                         <div className="flex justify-between items-start mb-2">
                             <span className="text-xs font-bold text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/10 px-2 py-1 rounded-md">{new Date(ann.created_at).toLocaleDateString()}</span>

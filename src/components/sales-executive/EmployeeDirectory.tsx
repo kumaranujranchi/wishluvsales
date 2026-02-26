@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Card, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -7,30 +8,15 @@ import { Search, Download, User } from 'lucide-react';
 import { Profile } from '../../types/database';
 
 export function EmployeeDirectory() {
-    const [employees, setEmployees] = useState<Profile[]>([]);
+    const rawEmployees = useQuery(api.profiles.list);
     const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(true);
+    const loading = rawEmployees === undefined;
 
-    useEffect(() => {
-        loadEmployees();
-    }, []);
-
-    const loadEmployees = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('is_active', true)
-                .neq('role', 'super_admin')
-                .order('full_name');
-            if (error) throw error;
-            setEmployees(data || []);
-        } catch (error) {
-            console.error('Error loading employees:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Map Convex _id to id for compatibility and filter
+    const employees: Profile[] = (rawEmployees || []).map((emp: any) => ({
+        ...emp,
+        id: emp._id
+    })).filter((emp: any) => emp.is_active && emp.role !== 'super_admin');
 
     const filteredEmployees = employees.filter(emp =>
         emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||

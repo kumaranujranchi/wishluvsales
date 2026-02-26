@@ -35,6 +35,7 @@ export const get = query({
 
 export const add = mutation({
   args: {
+    supabase_id: v.optional(v.string()),
     name: v.string(),
     email: v.optional(v.string()),
     phone: v.string(),

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { SiteVisit, Project } from '../../types/database';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -12,15 +13,26 @@ import { ChevronDown, ChevronUp, AlertCircle, MessageSquare, Info } from 'lucide
 interface SiteVisitRequestFormProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess?: () => void;
     editingVisit?: SiteVisit | null;
 }
 
 export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit }: SiteVisitRequestFormProps) {
     const { user } = useAuth();
     const dialog = useDialog();
-    const [projects, setProjects] = useState<Project[]>([]);
+    const rawProjects = useQuery((api as any).projects.listAll || (api as any).projects.list);
+    
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const createVisit = useMutation((api as any).site_visits.add);
+    const updateVisit = useMutation((api as any).site_visits.update);
+
+    const projects = useMemo(() => {
+        return (rawProjects || []).map((p: any) => ({
+            ...p,
+            id: p._id
+        })) as Project[];
+    }, [rawProjects]);
 
     // UI State
     const [showNotes, setShowNotes] = useState(false);
@@ -38,10 +50,6 @@ export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit 
     });
 
     useEffect(() => {
-        loadProjects();
-    }, []);
-
-    useEffect(() => {
         if (editingVisit) {
             setIsClarificationMode(editingVisit.status === 'pending_clarification');
             setFormData({
@@ -55,8 +63,6 @@ export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit 
                 clarificationResponse: ''
             });
 
-            // If there are existing notes, we might want to show them? 
-            // Or only show logic based on user interaction.
             if (editingVisit.notes) setShowNotes(true);
 
         } else {
@@ -77,11 +83,6 @@ export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit 
             notes: '',
             clarificationResponse: ''
         });
-    };
-
-    const loadProjects = async () => {
-        const { data } = await supabase.from('projects').select('*').eq('is_active', true);
-        if (data) setProjects(data);
     };
 
     const countWords = (str: string) => {
@@ -123,7 +124,8 @@ export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit 
                 finalNotes = (finalNotes || '') + responseEntry;
             }
 
-            const visitData = {
+            const now = new Date().toISOString();
+            const visitData: any = {
                 customer_name: formData.customerName,
                 customer_phone: formData.customerPhone,
                 pickup_location: formData.pickupLocation,
@@ -131,25 +133,31 @@ export function SiteVisitRequestForm({ isOpen, onClose, onSuccess, editingVisit 
                 visit_date: formData.visitDate,
                 visit_time: formData.visitTime,
                 notes: finalNotes,
-                status: isClarificationMode ? 'pending' : (editingVisit?.status || 'pending')
+                status: isClarificationMode ? 'pending' : (editingVisit?.status || 'pending'),
+                updated_at: now
             };
 
-            if (!editingVisit) {
-                Object.assign(visitData, { requested_by: user.id, status: 'pending' });
+            if (editingVisit) {
+                await updateVisit({
+                    id: (editingVisit as any)._id || editingVisit.id,
+                    ...visitData
+                });
+            } else {
+                await createVisit({
+                    ...visitData,
+                    requested_by: user.id as string,
+                    status: 'pending',
+                    is_public: false,
+                    created_at: now
+                });
             }
-
-            const { error } = editingVisit
-                ? await supabase.from('site_visits').update(visitData).eq('id', editingVisit.id)
-                : await supabase.from('site_visits').insert(visitData);
-
-            if (error) throw error;
 
             await dialog.alert(
                 editingVisit ? 'Request updated successfully!' : 'Request submitted successfully!',
                 { variant: 'success', title: 'Success' }
             );
 
-            onSuccess();
+            onSuccess?.();
             onClose();
         } catch (error: any) {
             console.error('Error saving site visit:', error);

@@ -55,20 +55,6 @@ export default defineSchema({
     updated_at: v.string(),
   }).index("by_supabase_id", ["supabase_id"]),
 
-  targets: defineTable({
-    supabase_id: v.optional(v.string()),
-    user_id: v.string(),
-    period_type: v.string(),
-    target_sqft: v.number(),
-    target_amount: v.number(),
-    target_units: v.number(),
-    start_date: v.string(),
-    end_date: v.string(),
-    created_by: v.optional(v.string()),
-    created_at: v.string(),
-    updated_at: v.string(),
-  }).index("by_supabase_id", ["supabase_id"]),
-
   customers: defineTable({
     supabase_id: v.optional(v.string()),
     name: v.string(),
@@ -119,12 +105,12 @@ export default defineSchema({
   }).index("by_supabase_id", ["supabase_id"]).index("by_user", ["user_id"]),
 
   sales: defineTable({
-    supabase_id: v.optional(v.string()),
+    supabase_id: v.optional(v.string()), // store the old UUID for migration mapping
     sale_number: v.string(),
-    customer_id: v.string(),
-    project_id: v.string(),
-    sales_executive_id: v.string(),
-    team_leader_id: v.optional(v.string()),
+    customer_id: v.string(), // This is now a Convex ID (string)
+    project_id: v.string(), // This is now a Convex ID (string)
+    sales_executive_id: v.string(), // This is now a Convex ID (string)
+    team_leader_id: v.optional(v.string()), // This is now a Convex ID (string)
     sale_date: v.string(),
     property_type: v.optional(v.string()),
     unit_number: v.optional(v.string()),
@@ -165,6 +151,20 @@ export default defineSchema({
     created_at: v.string(),
     updated_at: v.string(),
   }).index("by_supabase_id", ["supabase_id"]).index("by_sale", ["sale_id"]),
+
+  targets: defineTable({
+    supabase_id: v.optional(v.string()),
+    user_id: v.id("profiles"),
+    period_type: v.string(),
+    target_sqft: v.number(),
+    target_amount: v.number(),
+    target_units: v.number(),
+    start_date: v.string(),
+    end_date: v.string(),
+    created_by: v.optional(v.string()),
+    created_at: v.string(),
+    updated_at: v.string(),
+  }).index("by_user", ["user_id"]).index("by_period", ["period_type"]),
 
   incentives: defineTable({
     supabase_id: v.optional(v.string()),

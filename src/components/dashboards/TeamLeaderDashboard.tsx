@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
-
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { CelebrationCards } from '../sales-executive/CelebrationCards';
 import {
@@ -15,7 +15,7 @@ import {
 import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
-import { format, subMonths, startOfMonth, endOfMonth, startOfYear, isSameMonth, parseISO } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, startOfYear, isSameMonth, parseISO, isAfter } from 'date-fns';
 
 // --- Interfaces ---
 interface DashboardMetrics {
@@ -44,7 +44,7 @@ interface TeamTargetStatus {
   id: string;
   name: string;
   role: string;
-  targetAmount: number; // or sqft based on business logic, sticking to revenue for generalized view or sqft if specified
+  targetAmount: number;
   achievedAmount: number;
   shortfall: number;
   percentage: number;
@@ -54,8 +54,6 @@ interface OperationalData {
   projects: { name: string; status: string; salesSqFt: number; imageUrl: string | null }[];
   siteVisits: { total: number; avgPerExec: number; conversionRate: number };
 }
-
-
 
 const LeaderboardItem = ({ rank, name, area, image_url, role }: { rank: number, name: string, area: number, image_url?: string | null, role?: string }) => {
   const getBorderColor = (rank: number) => {
@@ -102,218 +100,169 @@ const LeaderboardItem = ({ rank, name, area, image_url, role }: { rank: number, 
 
 export function TeamLeaderDashboard() {
   const { profile } = useAuth();
-  const [loading, setLoading] = useState(true);
 
-  // State
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    mtdSales: 0, mtdRevenue: 0, mtdSalesGrowth: 0, mtdRevenueGrowth: 0,
-    ytdSales: 0, ytdRevenue: 0, ytdSalesGrowth: 0, ytdRevenueGrowth: 0
-  });
-  const [salesTrend, setSalesTrend] = useState<any[]>([]);
-  const [areaLeaderboard, setAreaLeaderboard] = useState<{ mtd: LeaderboardEntry[]; ytd: LeaderboardEntry[] }>({ mtd: [], ytd: [] });
-  const [teamTargets, setTeamTargets] = useState<TeamTargetStatus[]>([]);
-  const [operational, setOperational] = useState<OperationalData>({
-    projects: [],
-    siteVisits: { total: 0, avgPerExec: 0, conversionRate: 0 }
-  });
+  // Convex Queries
+  const profilesRaw = useQuery(api.profiles.list);
+  const salesRaw = useQuery(api.sales.list);
+  const targetsRaw = useQuery(api.targets.listAll);
+  const siteVisits = useQuery((api as any).site_visits.listAll);
+  const projectsRaw = useQuery(api.projects.list);
 
-  useEffect(() => {
-    if (profile?.id) {
-      loadAllData();
-    }
-  }, [profile]);
+  const stats = useMemo(() => {
+    if (!profile || !profilesRaw || !salesRaw || !targetsRaw || !siteVisits || !projectsRaw) return null;
 
-  const loadAllData = async () => {
-    if (!profile?.id) return;
-    setLoading(true);
+    const now = new Date();
+    const currentYearStart = startOfYear(now);
+    const monthStartStr = format(startOfMonth(now), 'yyyy-MM-dd');
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfMonth(subMonths(now, 1));
 
-    try {
-      const now = new Date();
-      const currentYearStart = startOfYear(now).toISOString();
-      const lastMonthStart = startOfMonth(subMonths(now, 1)).toISOString();
-      const lastMonthEnd = endOfMonth(subMonths(now, 1)).toISOString();
+    // 1. Team Members
+    const teamMembers = profilesRaw.filter((p: any) => 
+      p.reporting_manager_id === profile.id || p._id === profile.id
+    ).filter((p: any) => p.is_active);
 
-      // 1. Fetch Team Members and Include Self
-      const { data: teamMembersRaw } = await supabase
-        .from('profiles')
-        .select('id, full_name, image_url, created_at, role')
-        .or(`reporting_manager_id.eq.${profile.id},id.eq.${profile.id}`)
-        .eq('is_active', true);
+    const teamIds = new Set(teamMembers.map((m: any) => m._id));
 
-      const teamMembers = teamMembersRaw || [];
-      const teamIds = teamMembers.map(m => m.id);
-      // Include TL metrics? Usually TL wants to see Team's performance. Let's stick to teamIds for strict team view, or all for inclusive. Prompt says "Team Leader View: view sales records of their entire team". Usually implies specific reportees.
+    // 2. Sales Data for Team
+    const teamSales = salesRaw.filter((s: any) => teamIds.has(s.sales_executive_id));
 
-      if (teamIds.length === 0) {
-        setLoading(false);
-        return; // No team members
-      }
+    // 3. MTD Metrics
+    const mtdSalesData = teamSales.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+    const lastMonthSalesData = teamSales.filter((s: any) => {
+      const d = parseISO(s.sale_date);
+      return d >= lastMonthStart && d <= lastMonthEnd;
+    });
 
-      // 2. Fetch Sales Data (All Time for YTD calculation)
-      const { data: allSales } = await supabase
-        .from('sales')
-        .select('*')
-        .in('sales_executive_id', teamIds);
+    const mtdRevenue = mtdSalesData.reduce((sum: number, s: any) => sum + (s.total_revenue || 0), 0);
+    const lastMonthRevenue = lastMonthSalesData.reduce((sum: number, s: any) => sum + (s.total_revenue || 0), 0);
 
-      const sales = allSales || [];
+    // 4. YTD Metrics
+    const ytdSalesData = teamSales.filter((s: any) => isAfter(parseISO(s.sale_date), currentYearStart) || isSameMonth(parseISO(s.sale_date), currentYearStart));
+    const ytdRevenue = ytdSalesData.reduce((sum: number, s: any) => sum + (s.total_revenue || 0), 0);
 
-      // 3. Calculate MTD Metrics
-      const mtdSalesData = sales.filter(s => isSameMonth(parseISO(s.sale_date), now));
-      const lastMonthSalesData = sales.filter(s => {
-        const d = parseISO(s.sale_date);
-        return d >= parseISO(lastMonthStart) && d <= parseISO(lastMonthEnd);
-      });
+    const metrics: DashboardMetrics = {
+      mtdSales: mtdSalesData.length,
+      mtdRevenue: mtdRevenue,
+      mtdSalesGrowth: lastMonthSalesData.length ? ((mtdSalesData.length - lastMonthSalesData.length) / lastMonthSalesData.length) * 100 : 100,
+      mtdRevenueGrowth: lastMonthRevenue ? ((mtdRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 100,
+      ytdSales: ytdSalesData.length,
+      ytdRevenue: ytdRevenue,
+      ytdSalesGrowth: 0,
+      ytdRevenueGrowth: 0
+    };
 
-      const mtdRevenue = mtdSalesData.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
-      const lastMonthRevenue = lastMonthSalesData.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
-
-      // 4. Calculate YTD Metrics
-      const ytdSalesData = sales.filter(s => parseISO(s.sale_date) >= parseISO(currentYearStart));
-      const ytdRevenue = ytdSalesData.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
-
-      // Growth Logic
-      const cardMetrics: DashboardMetrics = {
-        mtdSales: mtdSalesData.length,
-        mtdRevenue: mtdRevenue,
-        mtdSalesGrowth: lastMonthSalesData.length ? ((mtdSalesData.length - lastMonthSalesData.length) / lastMonthSalesData.length) * 100 : 100,
-        mtdRevenueGrowth: lastMonthRevenue ? ((mtdRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 100,
-        ytdSales: ytdSalesData.length,
-        ytdRevenue: ytdRevenue,
-        ytdSalesGrowth: 0, // Placeholder for YoY if we had historical data
-        ytdRevenueGrowth: 0
+    // 5. Chart Data (Last 6 Months)
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = subMonths(now, 5 - i);
+      return {
+        name: format(d, 'MMM'),
+        date: d,
+        revenue: 0,
+        target: 5000000
       };
-      setMetrics(cardMetrics);
+    });
 
-      // 5. Chart Data (Last 6 Months)
-      const months = Array.from({ length: 6 }, (_, i) => {
-        const d = subMonths(now, 5 - i);
-        return {
-          name: format(d, 'MMM'),
-          date: d,
-          revenue: 0,
-          target: 5000000 // Mock constant target line for visualization or fetch real targets
-        };
-      });
+    teamSales.forEach((s: any) => {
+      const d = parseISO(s.sale_date);
+      const monthIdx = months.findIndex(m => isSameMonth(m.date, d));
+      if (monthIdx >= 0) {
+        months[monthIdx].revenue += (s.total_revenue || 0);
+      }
+    });
 
-      sales.forEach(s => {
-        const d = parseISO(s.sale_date);
-        const monthIdx = months.findIndex(m => isSameMonth(m.date, d));
-        if (monthIdx >= 0) {
-          months[monthIdx].revenue += (s.total_revenue || 0);
-        }
-      });
-      setSalesTrend(months);
+    // 6. Leaderboard & Target Status
+    const teamTargets = targetsRaw.filter((t: any) => 
+      teamIds.has(t.user_id) && 
+      t.period_type === 'monthly' && 
+      (t.start_date || t.period_start) === monthStartStr
+    );
 
-      // 6. Leaderboard & Target Status
-      // Fetch active monthly targets for this month
-      const { data: targets } = await supabase
-        .from('sales_targets') // Assuming this table exists from previous context
-        .select('*')
-        .in('user_id', teamIds)
-        .eq('period_type', 'monthly')
-        .eq('start_date', format(startOfMonth(now), 'yyyy-MM-dd')); // Adjust date format match
+    const leaderboardData = teamMembers.map((member: any) => {
+      const memberSalesMTD = mtdSalesData.filter((s: any) => s.sales_executive_id === member._id);
+      const memberSalesYTD = ytdSalesData.filter((s: any) => s.sales_executive_id === member._id);
 
-      const leaderboardData = teamMembers.map(member => {
-        const memberSalesMTD = mtdSalesData.filter(s => s.sales_executive_id === member.id);
-        const memberSalesYTD = ytdSalesData.filter(s => s.sales_executive_id === member.id);
+      const memberRev = memberSalesMTD.reduce((sum: number, s: any) => sum + (s.total_revenue || 0), 0);
+      const memberAreaMTD = memberSalesMTD.reduce((sum: number, s: any) => sum + (s.area_sqft || 0), 0);
+      const memberAreaYTD = memberSalesYTD.reduce((sum: number, s: any) => sum + (s.area_sqft || 0), 0);
 
-        const memberRev = memberSalesMTD.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
-        const memberAreaMTD = memberSalesMTD.reduce((sum, s) => sum + (s.area_sqft || 0), 0);
-        const memberAreaYTD = memberSalesYTD.reduce((sum, s) => sum + (s.area_sqft || 0), 0);
+      const target = teamTargets.find((t: any) => t.user_id === member._id)?.target_amount || 1000000;
 
-        // Find target - defaulting to SqFt or Amt logic.
-        const target = targets?.find(t => t.user_id === member.id)?.target_amount || 1000000;
+      return {
+        id: member._id,
+        name: member.full_name,
+        avatarUrl: member.image_url,
+        revenue: memberRev,
+        areaMTD: memberAreaMTD,
+        areaYTD: memberAreaYTD,
+        salesCount: memberSalesMTD.length,
+        targetAchievement: (memberRev / target) * 100,
+        role: member.role,
+        trend: 'neutral' as const
+      };
+    });
 
-        return {
-          id: member.id,
-          name: member.full_name,
-          avatarUrl: member.image_url,
-          revenue: memberRev,
-          areaMTD: memberAreaMTD,
-          areaYTD: memberAreaYTD,
-          salesCount: memberSalesMTD.length,
-          targetAchievement: (memberRev / target) * 100,
-          role: member.role,
-          trend: 'neutral' as const
-        };
-      });
+    const mtdAreaSorted = [...leaderboardData].map(d => ({ ...d, area: d.areaMTD })).sort((a, b) => b.area - a.area);
+    const ytdAreaSorted = [...leaderboardData].map(d => ({ ...d, area: d.areaYTD })).sort((a, b) => b.area - a.area);
 
-      // Sort for Area Leaderboards
-      const mtdAreaSorted = [...leaderboardData].map(d => ({ ...d, area: d.areaMTD })).sort((a, b) => b.area - a.area);
-      const ytdAreaSorted = [...leaderboardData].map(d => ({ ...d, area: d.areaYTD })).sort((a, b) => b.area - a.area);
+    const targetStatusData = leaderboardData.map(l => {
+      const targetObj = teamTargets.find((t: any) => t.user_id === l.id);
+      const targetAmt = targetObj?.target_amount || 1000000;
+      return {
+        id: l.id,
+        name: l.name,
+        role: l.role,
+        targetAmount: targetAmt,
+        achievedAmount: l.revenue,
+        shortfall: Math.max(0, targetAmt - l.revenue),
+        percentage: l.targetAchievement
+      }
+    });
 
-      setAreaLeaderboard({ mtd: mtdAreaSorted, ytd: ytdAreaSorted });
+    // 7. Site Visits
+    const teamVisits = siteVisitsRaw.filter((v: any) => teamIds.has(v.requested_by));
+    const totalVisits = teamVisits.length;
+    const conversion = totalVisits > 0 ? (mtdSalesData.length / totalVisits) * 100 : 0;
 
-      // 7. Team Target Details
-      const targetStatusData = leaderboardData.map(l => {
-        const targetObj = targets?.find(t => t.user_id === l.id);
-        const targetAmt = targetObj?.target_amount || 1000000;
-        return {
-          id: l.id,
-          name: l.name,
-          role: l.role,
-          targetAmount: targetAmt,
-          achievedAmount: l.revenue,
-          shortfall: Math.max(0, targetAmt - l.revenue),
-          percentage: l.targetAchievement
-        }
-      });
-      setTeamTargets(targetStatusData);
+    // 8. Project Wise
+    const projectSalesMap = new Map<string, number>();
+    ytdSalesData.forEach((sale: any) => {
+      if (sale.project_id) {
+        projectSalesMap.set(sale.project_id, (projectSalesMap.get(sale.project_id) || 0) + (sale.area_sqft || 0));
+      }
+    });
 
-      // 8. Operational Data (Mocked for Demo as requested tables might not exist)
-      // Fetch Site Visits
-      const { data: visits } = await supabase
-        .from('site_visits')
-        .select('id, created_at, assigned_vehicle')
-        .in('requested_by', teamIds); // Visits requested by team
+    const projectStats = projectsRaw.map((p: any) => ({
+      name: p.name,
+      status: 'Active',
+      salesSqFt: projectSalesMap.get(p._id) || 0,
+      imageUrl: p.site_photos?.[0] || null
+    })).sort((a: any, b: any) => b.salesSqFt - a.salesSqFt).slice(0, 4);
 
-      const totalVisits = visits?.length || 0;
-      const conversion = totalVisits > 0 ? (mtdSalesData.length / totalVisits) * 100 : 0;
-
-      // Real projects (Fetch with images)
-      const { data: projectsData } = await supabase
-        .from('projects')
-        .select('id, name, site_photos');
-
-      // Calculate YTD Sales Area (Sq. Ft.) per Project
-      const projectSalesMap = new Map<string, number>();
-      ytdSalesData.forEach(sale => {
-        const pId = sale.project_id;
-        if (pId) {
-          projectSalesMap.set(pId, (projectSalesMap.get(pId) || 0) + (sale.area_sqft || 0));
-        }
-      });
-
-      setOperational({
-        projects: projectsData?.map(p => ({
-          name: p.name,
-          status: 'Active',
-          salesSqFt: projectSalesMap.get(p.id) || 0, // Map sales area
-          imageUrl: p.site_photos?.[0] || null
-        })).sort((a, b) => b.salesSqFt - a.salesSqFt).slice(0, 4) || [], // Top 4 by sales area
+    return {
+      metrics,
+      salesTrend: months,
+      areaLeaderboard: { mtd: mtdAreaSorted, ytd: ytdAreaSorted },
+      teamTargets: targetStatusData,
+      operational: {
+        projects: projectStats,
         siteVisits: {
           total: totalVisits,
-          avgPerExec: teamIds.length ? (totalVisits / teamIds.length) : 0,
+          avgPerExec: teamMembers.length ? (totalVisits / teamMembers.length) : 0,
           conversionRate: conversion
         }
-      });
+      }
+    };
+  }, [profile, profilesRaw, salesRaw, targetsRaw, siteVisits, projectsRaw]);
 
-    } catch (error) {
-      console.error("Dashboard Load Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-
-  if (loading) {
+  if (!stats) {
     return <LoadingSpinner size="lg" fullScreen />;
   }
 
+  const { metrics, salesTrend, areaLeaderboard, teamTargets, operational } = stats;
+
   return (
     <div className="space-y-6 pb-12">
-      {/* Welcome Section - Vibrant for TL - optimized for Dark Mode */}
       <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-900/80 dark:to-teal-900/80 rounded-3xl p-8 shadow-2xl shadow-emerald-200 dark:shadow-none border border-white/10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
@@ -347,8 +296,6 @@ export function TeamLeaderDashboard() {
         </div>
       </div>
 
-
-      {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <KPICard
           title="MTD Revenue"
@@ -368,14 +315,14 @@ export function TeamLeaderDashboard() {
         />
         <KPICard
           title="YTD Revenue"
-          value={formatCurrency(metrics.ytdRevenue, true)} // Force Cr
+          value={formatCurrency(metrics.ytdRevenue, true)}
           icon={TrendingUp}
           subtitle="Current Fiscal Year"
           iconColor="text-purple-600 dark:text-purple-400"
           iconBgColor="bg-purple-100 dark:bg-purple-500/20"
         />
         <KPICard
-          title="Avg Team Performace"
+          title="Avg Team Performance"
           value={`${(teamTargets.reduce((a, b) => a + b.percentage, 0) / (teamTargets.length || 1)).toFixed(1)}%`}
           icon={Award}
           subtitle="Goal Achievement"
@@ -384,13 +331,8 @@ export function TeamLeaderDashboard() {
         />
       </div>
 
-      {/* Main Content Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Left Column (Main Charts & Tables) */}
         <div className="lg:col-span-2 space-y-6">
-
-          {/* Sales Trend Chart */}
           <Card className="rounded-3xl shadow-card-custom overflow-hidden">
             <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
               <CardTitle>Revenue Trend</CardTitle>
@@ -428,7 +370,6 @@ export function TeamLeaderDashboard() {
             </CardContent>
           </Card>
 
-          {/* Team Target Status Table */}
           <Card className="rounded-3xl shadow-card-custom overflow-hidden">
             <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
               <CardTitle className="flex items-center justify-between">
@@ -459,15 +400,15 @@ export function TeamLeaderDashboard() {
                         <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{formatCurrency(t.targetAmount)}</td>
                         <td className="px-4 py-3 text-right text-gray-900 dark:text-white font-semibold">{formatCurrency(t.achievedAmount)}</td>
                         <td className="px-4 py-3 pl-8">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${t.percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                                style={{ width: `${Math.min(t.percentage, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-semibold w-10 dark:text-gray-300">{t.percentage.toFixed(0)}%</span>
-                          </div>
+                           <div className="flex items-center gap-3">
+                             <div className="flex-1 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                               <div
+                                 className={`h-full rounded-full ${t.percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                                 style={{ width: `${Math.min(t.percentage, 100)}%` }}
+                               />
+                             </div>
+                             <span className="text-xs font-semibold w-10 dark:text-gray-300">{t.percentage.toFixed(0)}%</span>
+                           </div>
                         </td>
                       </tr>
                     ))}
@@ -476,14 +417,9 @@ export function TeamLeaderDashboard() {
               </div>
             </CardContent>
           </Card>
-
-
         </div>
 
-        {/* Right Column (Operational & Info) */}
         <div className="lg:col-span-1 space-y-6">
-
-          {/* Project Status */}
           <Card className="rounded-3xl shadow-card-custom overflow-hidden">
             <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
               <CardTitle className="flex items-center gap-2">
@@ -498,7 +434,6 @@ export function TeamLeaderDashboard() {
                       <div className="p-1.5 bg-white dark:bg-surface-highlight rounded-lg border border-gray-100 dark:border-white/5 text-indigo-600 dark:text-indigo-400">
                         <Briefcase size={16} />
                       </div>
-                      {/* Placeholder for trend or status if needed */}
                     </div>
                     <div>
                       <h4 className="font-bold text-sm text-gray-800 dark:text-white truncate mb-1">{p.name}</h4>
@@ -512,8 +447,6 @@ export function TeamLeaderDashboard() {
             </CardContent>
           </Card>
 
-          {/* Operational Stats */}
-          {/* Operational Stats */}
           <Card className="rounded-3xl shadow-card-custom overflow-hidden">
             <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
               <CardTitle className="flex items-center gap-2">
@@ -541,18 +474,10 @@ export function TeamLeaderDashboard() {
               </div>
             </CardContent>
           </Card>
-
-
-
-
-
-          {/* End Right Column */}
         </div>
-      </div> {/* End Main Split */}
+      </div>
 
-      {/* Leaderboard Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Monthly Leaderboard */}
         <Card className="rounded-3xl overflow-hidden">
           <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
             <CardTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
@@ -564,7 +489,7 @@ export function TeamLeaderDashboard() {
               {areaLeaderboard.mtd.length > 0 ? (
                 areaLeaderboard.mtd.slice(0, 5).map((item, index) => (
                   <LeaderboardItem
-                    key={item.id}
+                    key={item.id + '-m'}
                     rank={index + 1}
                     name={item.name}
                     area={item.area}
@@ -579,7 +504,6 @@ export function TeamLeaderDashboard() {
           </CardContent>
         </Card>
 
-        {/* Yearly Leaderboard */}
         <Card className="rounded-3xl overflow-hidden">
           <CardHeader className="bg-white dark:bg-surface-dark border-b border-slate-50 dark:border-white/5 pb-4">
             <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
@@ -591,7 +515,7 @@ export function TeamLeaderDashboard() {
               {areaLeaderboard.ytd.length > 0 ? (
                 areaLeaderboard.ytd.slice(0, 5).map((item, index) => (
                   <LeaderboardItem
-                    key={item.id}
+                    key={item.id + '-y'}
                     rank={index + 1}
                     name={item.name}
                     area={item.area}
@@ -607,8 +531,7 @@ export function TeamLeaderDashboard() {
         </Card>
       </div>
 
-      {/* Employee Milestones Section */}
       <CelebrationCards />
-    </div >
+    </div>
   );
 }

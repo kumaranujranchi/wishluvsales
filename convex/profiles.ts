@@ -33,6 +33,7 @@ export const add = mutation({
     joining_date: v.optional(v.string()),
     is_active: v.boolean(),
     force_password_change: v.boolean(),
+    supabase_id: v.optional(v.string()),
     created_at: v.string(),
     updated_at: v.string(),
   },
@@ -57,6 +58,7 @@ export const update = mutation({
     joining_date: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
     force_password_change: v.optional(v.boolean()),
+    supabase_id: v.optional(v.string()),
     updated_at: v.string(),
   },
   handler: async (ctx, args) => {

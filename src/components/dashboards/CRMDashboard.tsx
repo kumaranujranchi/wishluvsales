@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -33,6 +34,7 @@ import { UpcomingEvents } from './widgets/UpcomingEvents';
 import { Select } from '../ui/Select';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import { startOfMonth, startOfYear, isSameMonth, parseISO, isAfter, format } from 'date-fns';
 
 interface DashboardStats {
     totalProjects: number;
@@ -70,271 +72,168 @@ interface Announcement {
 
 export function CRMDashboard() {
     const { profile } = useAuth();
-    const [stats, setStats] = useState<DashboardStats>({
-        totalProjects: 0,
-        totalTeamMembers: 0,
-        totalDepartments: 0,
-        monthlySales: 0,
-        monthlyRevenue: 0,
-        ytdSales: 0,
-        ytdRevenue: 0,
-        pendingSiteVisits: 0,
-    });
 
-    const [salesChartData, setSalesChartData] = useState<ChartData[]>([]);
-    const [recentSales, setRecentSales] = useState<any[]>([]);
-    const [topPerformers, setTopPerformers] = useState<LeaderboardUser[]>([]);
-
-    // Sales Data Storage for Client-side Filtering
-    const [allSales, setAllSales] = useState<any[]>([]);
+    // Convex Queries
+    const profiles = useQuery(api.profiles.list);
+    const projects = useQuery(api.projects.list);
+    const sales = useQuery(api.sales.list);
+    const payments = useQuery(api.payments.listAll);
+    const siteVisits = useQuery((api as any).site_visits.listAll);
+    const segments = useQuery((api as any).departments?.list) || []; // Using generic departments/segments if exists
+    const announcementsRaw = useQuery((api as any).announcements.listAll);
+    const activityLogsRaw = useQuery((api as any).activity_logs.list);
 
     // Filters
     const [leaderboardTimeFilter, setLeaderboardTimeFilter] = useState<'today' | 'this_week' | 'this_month' | 'this_year'>('this_month');
     const [leaderboardRoleFilter, setLeaderboardRoleFilter] = useState<'all' | 'sales_executive' | 'team_leader'>('all');
 
-    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-    const [activityLogs, setActivityLogs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const statsData = useMemo(() => {
+        if (!profiles || !projects || !sales || !payments || !siteVisits || !announcementsRaw || !activityLogsRaw) return null;
 
+        const now = new Date();
+        const monthStart = startOfMonth(now);
+        const yearStart = startOfYear(now);
 
+        // 1. Basic Stats
+        const totalProjects = projects.filter((p: any) => p.is_active).length;
+        const totalTeamMembers = profiles.filter((p: any) => p.is_active).length;
+        const totalDepartments = segments.length; // Fallback or dynamic
+        const pendingSiteVisits = siteVisits.filter((v: any) => v.status === 'pending').length;
 
-    useEffect(() => {
-        loadDashboardData();
-    }, []);
+        // 2. Sales Metrics
+        const currentMonthSales = sales.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+        const ytdSalesList = sales.filter((s: any) => isAfter(parseISO(s.sale_date), yearStart) || isSameMonth(parseISO(s.sale_date), yearStart));
 
-    // Filter Leaderboard Data
-    useEffect(() => {
-        if (allSales.length === 0) return;
+        const monthlyRevenue = currentMonthSales.reduce((sum: number, s: any) => sum + Number(s.total_revenue || 0), 0);
+        const ytdRevenue = ytdSalesList.reduce((sum: number, s: any) => sum + Number(s.total_revenue || 0), 0);
 
-        const calculateLeaderboard = () => {
-            const now = new Date();
-            now.setHours(0, 0, 0, 0); // Start of today
+        // 3. Chart Data (Monthly for this year)
+        const salesByMonth = new Map<string, { sales: number; revenue: number; collections: number }>();
+        for (let i = 0; i <= now.getMonth(); i++) {
+            const d = new Date(now.getFullYear(), i, 1);
+            const key = format(d, 'MMM');
+            salesByMonth.set(key, { sales: 0, revenue: 0, collections: 0 });
+        }
 
-            let startDate = new Date(now.getFullYear(), 0, 1); // Default This Year
+        ytdSalesList.forEach((s: any) => {
+            const monthKey = format(parseISO(s.sale_date), 'MMM');
+            const current = salesByMonth.get(monthKey) || { sales: 0, revenue: 0, collections: 0 };
+            salesByMonth.set(monthKey, {
+                ...current,
+                sales: current.sales + 1,
+                revenue: current.revenue + Number(s.total_revenue || 0)
+            });
+        });
 
-            if (leaderboardTimeFilter === 'today') {
-                startDate = now;
-            } else if (leaderboardTimeFilter === 'this_week') {
-                // Start of week (Sunday)
-                const day = now.getDay();
-                const diff = now.getDate() - day; // adjust when day is sunday
-                startDate = new Date(now.setDate(diff));
-                startDate.setHours(0, 0, 0, 0);
-            } else if (leaderboardTimeFilter === 'this_month') {
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        payments.filter((p: any) => isAfter(parseISO(p.payment_date), yearStart) || isSameMonth(parseISO(p.payment_date), yearStart)).forEach((p: any) => {
+            const monthKey = format(parseISO(p.payment_date), 'MMM');
+            const current = salesByMonth.get(monthKey);
+            if (current) {
+                current.collections += Number(p.amount || 0);
+                salesByMonth.set(monthKey, current);
             }
+        });
 
-            const filteredSales = allSales.filter(sale => {
-                const saleDate = new Date(sale.sale_date);
+        const chartData = Array.from(salesByMonth.entries()).map(([name, data]) => ({
+            name,
+            ...data
+        }));
 
-                // Time Filter
-                if (saleDate < startDate) return false;
-
-                // Role Filter
-                if (leaderboardRoleFilter !== 'all') {
-                    if (sale.profile?.role !== leaderboardRoleFilter) return false;
-                }
-
-                return true;
-            });
-
-            const leaderboardMap = new Map<string, LeaderboardUser>();
-
-            filteredSales.forEach(sale => {
-                if (sale.sales_executive_id) {
-                    const userCurrent = leaderboardMap.get(sale.sales_executive_id) || {
-                        id: sale.sales_executive_id,
-                        name: sale.profile?.full_name || 'Unknown',
-                        salesCount: 0,
-                        revenue: 0,
-                        image_url: sale.profile?.image_url || null
-                    };
-                    userCurrent.salesCount++;
-                    userCurrent.revenue += Number(sale.total_revenue);
-                    leaderboardMap.set(sale.sales_executive_id, userCurrent);
-                }
-            });
-
-            const sorted = Array.from(leaderboardMap.values())
-                .sort((a, b) => b.revenue - a.revenue)
-                .slice(0, 5); // Top 5
-
-            setTopPerformers(sorted);
+        // 4. Leaderboard Calculation
+        const profileMap = new Map(profiles.map((p: any) => [p._id, p]));
+        
+        const getStartDate = () => {
+            const d = new Date(now);
+            d.setHours(0, 0, 0, 0);
+            if (leaderboardTimeFilter === 'today') return d;
+            if (leaderboardTimeFilter === 'this_week') {
+                d.setDate(d.getDate() - d.getDay());
+                return d;
+            }
+            if (leaderboardTimeFilter === 'this_month') return monthStart;
+            return yearStart;
         };
 
-        calculateLeaderboard();
-    }, [allSales, leaderboardTimeFilter, leaderboardRoleFilter]);
-
-    const loadDashboardData = async () => {
-        try {
-            const now = new Date();
-            const currentMonth = now.getMonth() + 1;
-            const currentYear = now.getFullYear();
-            const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-            const yearStart = `${currentYear}-01-01`;
-
-            // 1. Fetch Basic Metrics
-            const [
-                { count: projectCount },
-                { count: teamCount },
-                { count: pendingVisits },
-                { count: departmentCount },
-                { data: activities }
-            ] = await Promise.all([
-                supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('site_visits').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabase.from('departments').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                supabase.from('activity_logs').select('*, user:user_id(full_name)').order('created_at', { ascending: false }).limit(20)
-            ]);
-
-            // 2. Fetch Sales Data for Metrics, Charts & Leaderboard
-            // We need ALL sales for the year to build charts and YTD metrics
-            const { data: yearSales } = await supabase
-                .from('sales')
-                .select(`
-          id,
-          sale_date,
-          total_revenue,
-          sales_executive_id,
-          profile:sales_executive_id (full_name, image_url, role)
-        `)
-                .gte('sale_date', yearStart)
-                .order('sale_date', { ascending: true });
-
-            if (yearSales) {
-                setAllSales(yearSales);
-                // Set Recent Sales (Top 5 most recent)
-                setRecentSales([...yearSales].reverse().slice(0, 10)); // Just use this data for now, ideally fetch recent separately
+        const filterStart = getStartDate();
+        const filteredSalesForLeaderboard = sales.filter((s: any) => {
+            const sDate = parseISO(s.sale_date);
+            if (sDate < filterStart) return false;
+            if (leaderboardRoleFilter !== 'all') {
+                const u = profileMap.get(s.sales_executive_id);
+                if (u?.role !== leaderboardRoleFilter) return false;
             }
+            return true;
+        });
 
-            const { data: recentSalesReal } = await supabase
-                .from('sales')
-                .select('*, customer:customer_id(name), project:project_id(name), profile:sales_executive_id(full_name)')
-                .order('sale_date', { ascending: false })
-                .limit(6);
-
-            if (recentSalesReal) setRecentSales(recentSalesReal);
-
-            // Fetch Payments for Collection Graph
-            const { data: yearPayments } = await supabase
-                .from('payments')
-                .select('amount, payment_date')
-                .gte('payment_date', yearStart);
-
-
-            // Process Sales Data for Stats & Chart
-            let mSales = 0;
-            let mRevenue = 0;
-            let ySales = 0;
-            let yRevenue = 0;
-
-            const salesByMonth = new Map<string, { sales: number; revenue: number; collections: number }>();
-
-            // Initialize months
-            for (let i = 0; i < 12; i++) {
-                const d = new Date(currentYear, i, 1);
-                if (d > now) break;
-                const monthKey = d.toLocaleString('default', { month: 'short' });
-                salesByMonth.set(monthKey, { sales: 0, revenue: 0, collections: 0 });
+        const lbMap = new Map<string, LeaderboardUser>();
+        filteredSalesForLeaderboard.forEach((s: any) => {
+            const u = profileMap.get(s.sales_executive_id);
+            if (u) {
+                const curr = lbMap.get(s.sales_executive_id) || {
+                    id: s.sales_executive_id,
+                    name: u.full_name,
+                    salesCount: 0,
+                    revenue: 0,
+                    image_url: u.image_url
+                };
+                curr.salesCount++;
+                curr.revenue += Number(s.total_revenue || 0);
+                lbMap.set(s.sales_executive_id, curr);
             }
+        });
 
-            yearSales?.forEach((sale: any) => {
-                const date = new Date(sale.sale_date);
-                const monthKey = date.toLocaleString('default', { month: 'short' });
+        const topPerformers = Array.from(lbMap.values())
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
 
-                // Update Stats
-                ySales++;
-                yRevenue += Number(sale.total_revenue);
-
-                if (sale.sale_date >= monthStart) {
-                    mSales++;
-                    mRevenue += Number(sale.total_revenue);
-                }
-
-                // Update Chart Data
-                const current = salesByMonth.get(monthKey) || { sales: 0, revenue: 0, collections: 0 };
-                salesByMonth.set(monthKey, {
-                    ...current,
-                    sales: current.sales + 1,
-                    revenue: current.revenue + Number(sale.total_revenue),
-                });
-            });
-
-            // Integrate Payments
-            yearPayments?.forEach((pay: any) => {
-                const date = new Date(pay.payment_date);
-                const monthKey = date.toLocaleString('default', { month: 'short' });
-                const current = salesByMonth.get(monthKey);
-                if (current) {
-                    current.collections += Number(pay.amount);
-                    salesByMonth.set(monthKey, current);
-                }
-            });
-
-            // Format Chart Data
-            const formattedChartData = Array.from(salesByMonth.entries()).map(([name, data]) => ({
-                name,
-                sales: data.sales,
-                revenue: data.revenue,
-                collections: data.collections
+        // 5. Recent Items
+        const projectMap = new Map(projects.map((p: any) => [p._id, p]));
+        const recentSales = [...sales]
+            .sort((a, b) => parseISO(b.sale_date).getTime() - parseISO(a.sale_date).getTime())
+            .slice(0, 6)
+            .map((s: any) => ({
+                ...s,
+                customer: { name: s.customer_name }, // Convex customer data handling
+                project: projectMap.get(s.project_id),
+                profile: profileMap.get(s.sales_executive_id)
             }));
 
-            setStats({
-                totalProjects: projectCount || 0,
-                totalTeamMembers: teamCount || 0,
-                totalDepartments: departmentCount || 0,
-                monthlySales: mSales,
-                monthlyRevenue: mRevenue,
-                ytdSales: ySales,
-                ytdRevenue: yRevenue,
-                pendingSiteVisits: pendingVisits || 0,
-            });
+        const announcements = announcementsRaw
+            .filter((a: any) => a.is_published)
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 3);
 
-            setSalesChartData(formattedChartData);
-            setActivityLogs(activities || []);
+        const activityLogs = activityLogsRaw
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 20);
 
-            // 3. Fetch Recent Sales (Detailed)
-            const { data: recentSalesData } = await supabase
-                .from('sales')
-                .select(`
-          id,
-          sale_date,
-          total_revenue,
-          customer:customer_id (name),
-          project:project_id (name),
-          profile:sales_executive_id (full_name)
-        `)
-                .order('sale_date', { ascending: false })
-                .limit(5);
+        return {
+            stats: {
+                totalProjects,
+                totalTeamMembers,
+                totalDepartments,
+                monthlySales: currentMonthSales.length,
+                monthlyRevenue,
+                ytdSales: ytdSalesList.length,
+                ytdRevenue,
+                pendingSiteVisits
+            },
+            chartData,
+            topPerformers,
+            recentSales,
+            announcements,
+            activityLogs
+        };
+    }, [profiles, projects, sales, payments, siteVisits, segments, announcementsRaw, activityLogsRaw, leaderboardTimeFilter, leaderboardRoleFilter]);
 
-            setRecentSales(recentSalesData || []);
-
-            // 4. Fetch Announcements
-            const { data: announcementData } = await supabase
-                .from('announcements')
-                .select('*')
-                .eq('is_published', true)
-                .order('created_at', { ascending: false })
-                .limit(3);
-
-            setAnnouncements(announcementData as Announcement[]);
-
-        } catch (error) {
-            console.error('Error loading dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) {
+    if (!statsData) {
         return <LoadingSpinner size="lg" fullScreen />;
     }
 
+    const { stats, chartData, topPerformers, recentSales, announcements, activityLogs } = statsData;
+
     return (
         <div className="space-y-8 pb-8">
-            {/* Welcome Section */}
-            {/* Welcome Section - Vibrant & Compact */}
             <div className="relative overflow-hidden bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-8 shadow-2xl shadow-indigo-200">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
@@ -368,7 +267,6 @@ export function CRMDashboard() {
                 </div>
             </div>
 
-            {/* KPI Cards Row 1: operational */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <KPICard
                     title="Total Active Projects"
@@ -394,7 +292,6 @@ export function CRMDashboard() {
                 />
             </div>
 
-            {/* KPIs Row 2: Financial Metrics (Month vs YTD) */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <KPICard
                     title="Sales (This Month)"
@@ -430,10 +327,7 @@ export function CRMDashboard() {
                 />
             </div>
 
-
-            {/* Main Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Sales Overview Graph */}
                 <Card className="rounded-3xl border-0 shadow-[0_2px_20px_rgb(0,0,0,0.04)] overflow-hidden ring-1 ring-slate-100 dark:ring-white/10 dark:bg-surface-dark dark:shadow-none">
                     <CardHeader className="border-b border-slate-100/50 pb-4">
                         <div className="flex items-center justify-between">
@@ -444,7 +338,6 @@ export function CRMDashboard() {
                                 Sales Trends
                             </CardTitle>
                             <div className="flex gap-2">
-                                {/* Placeholder for future range selector */}
                                 <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded-md">Last 12 Months</span>
                             </div>
                         </div>
@@ -452,7 +345,7 @@ export function CRMDashboard() {
                     <CardContent className="pt-6">
                         <div className="h-[250px] sm:h-[320px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={salesChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -498,7 +391,6 @@ export function CRMDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* Payment Collection Graph (New) */}
                 <Card className="rounded-3xl border-0 shadow-[0_2px_20px_rgb(0,0,0,0.04)] overflow-hidden ring-1 ring-slate-100 dark:ring-white/10 dark:bg-surface-dark dark:shadow-none">
                     <CardHeader className="border-b border-slate-50 dark:border-white/10 pb-4">
                         <div className="flex justify-between items-center">
@@ -513,7 +405,7 @@ export function CRMDashboard() {
                     <CardContent className="pt-6">
                         <div className="h-[250px] sm:h-[320px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={salesChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorCollections" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
@@ -562,14 +454,11 @@ export function CRMDashboard() {
                 </Card>
             </div>
 
-            {/* 50/50 Split: Activity Calendar & Leaderboard */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                {/* Widget 1: Calendar */}
                 <div className="h-[400px] sm:h-[500px]">
                     <ActivityCalendar activities={activityLogs} />
                 </div>
 
-                {/* Widget 2: Leaderboard */}
                 <Card className="h-[400px] sm:h-[500px] flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-100 dark:ring-white/10 dark:bg-surface-dark overflow-hidden">
                     <CardHeader className="border-b border-slate-100/50 dark:border-white/10 pb-4">
                         <div className="flex flex-row items-center justify-between mb-4">
@@ -618,7 +507,6 @@ export function CRMDashboard() {
                                         className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-100 dark:hover:border-white/10 transition-all group cursor-default"
                                     >
                                         <div className="flex items-center gap-4">
-
                                             <div className="relative">
                                                 <div className={`absolute -top-2 -left-2 w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold border-2 border-white dark:border-surface-dark shadow-sm z-10
                             ${index === 0 ? 'bg-yellow-400 text-yellow-900' :
@@ -632,11 +520,6 @@ export function CRMDashboard() {
                                                 ) : (
                                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-slate-100 dark:from-indigo-500/20 dark:to-slate-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold ring-2 ring-slate-50 dark:ring-white/10 group-hover:ring-white dark:group-hover:ring-white/20 shadow-sm transition-all">
                                                         {user.name.charAt(0)}
-                                                    </div>
-                                                )}
-                                                {index === 0 && (
-                                                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 rounded-full p-0.5 border-2 border-white dark:border-surface-dark">
-                                                        <Sparkles size={8} className="text-white" fill="currentColor" />
                                                     </div>
                                                 )}
                                             </div>
@@ -658,25 +541,16 @@ export function CRMDashboard() {
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
-                            {topPerformers.length === 0 && (
-                                <div className="flex flex-col items-center justify-center h-40 text-slate-400 dark:text-gray-500">
-                                    <Award size={32} className="mb-2 opacity-20" />
-                                    <p className="text-sm font-medium">No performance data available</p>
-                                </div>
-                            )}
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Secondary Information Grid: Activity Log & Announcements & Recent Sales */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Activity Log */}
                 <div className="h-[400px]">
                     <RecentActivityLog activities={activityLogs} />
                 </div>
 
-                {/* Announcements */}
                 <div className="h-[400px]">
                     <Card className="h-full flex flex-col rounded-3xl border-0 shadow-[0_2px_20px_rgb(0,0,0,0.04)] ring-1 ring-slate-100 dark:ring-white/10 overflow-hidden dark:bg-surface-dark">
                         <CardHeader className="border-b border-slate-100 dark:border-white/10 pb-4">
@@ -689,44 +563,33 @@ export function CRMDashboard() {
                         </CardHeader>
                         <CardContent className="pt-4 flex-1 overflow-auto custom-scrollbar">
                             <div className="space-y-4">
-                                {announcements.length > 0 ? (
-                                    announcements.map((ann) => (
-                                            <div className="p-4 bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-white/10 hover:border-rose-200 dark:hover:border-rose-500/30 hover:shadow-md transition-all group relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-rose-50 to-transparent dark:from-rose-500/10 rounded-bl-full opacity-50 group-hover:scale-110 transition-transform"></div>
-
-                                            <div className="relative">
-                                                <div className="flex justify-between items-start mb-2 gap-4">
-                                                    <h4 className="font-bold text-slate-800 dark:text-white text-sm group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">{ann.title}</h4>
-                                                    {ann.is_important && (
-                                                        <span className="shrink-0 text-[10px] bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full font-bold shadow-sm">
-                                                            Important
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-slate-600 dark:text-gray-400 line-clamp-2 leading-relaxed mb-3">{ann.content}</p>
-                                                <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-gray-500 font-medium">
-                                                    <CalendarIcon size={12} />
-                                                    <span>{new Date(ann.created_at).toLocaleDateString()}</span>
-                                                </div>
+                                {announcements.map((ann: any) => (
+                                    <div key={ann._id} className="p-4 bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-white/10 hover:border-rose-200 dark:hover:border-rose-500/30 hover:shadow-md transition-all group relative overflow-hidden">
+                                        <div className="relative">
+                                            <div className="flex justify-between items-start mb-2 gap-4">
+                                                <h4 className="font-bold text-slate-800 dark:text-white text-sm group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">{ann.title}</h4>
+                                                {ann.is_important && (
+                                                    <span className="shrink-0 text-[10px] bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full font-bold shadow-sm">
+                                                        Important
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-600 dark:text-gray-400 line-clamp-2 leading-relaxed mb-3">{ann.content}</p>
+                                            <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-gray-500 font-medium">
+                                                <CalendarIcon size={12} />
+                                                <span>{new Date(ann.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                        <Megaphone size={32} className="mb-2 opacity-20" />
-                                        <p className="text-sm font-medium">No announcements</p>
                                     </div>
-                                )}
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Upcoming Events */}
                 <UpcomingEvents />
             </div>
 
-            {/* Recent Sales Table - Full Width */}
             <Card className="rounded-3xl border-0 shadow-[0_2px_20px_rgb(0,0,0,0.04)] overflow-hidden ring-1 ring-slate-100 dark:ring-white/10 dark:bg-surface-dark">
                 <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 dark:border-white/10 bg-gray-50/30 dark:bg-surface-dark">
                     <CardTitle className="flex items-center gap-3 dark:text-white">
@@ -735,9 +598,6 @@ export function CRMDashboard() {
                         </div>
                         Recent Sales
                     </CardTitle>
-                    <Tooltip content="View All Sales">
-                        <Button variant="outline" size="sm" className="text-xs dark:bg-white/5 dark:text-white dark:border-white/10 dark:hover:bg-white/10">View All</Button>
-                    </Tooltip>
                 </CardHeader>
                 <CardContent className="pt-0">
                     <div className="overflow-x-auto">
@@ -751,8 +611,8 @@ export function CRMDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="space-y-2">
-                                {recentSales.map((sale) => (
-                                    <tr key={sale.id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-all rounded-lg border-b border-transparent hover:border-slate-100 dark:hover:border-white/10">
+                                {recentSales.map((sale: any) => (
+                                    <tr key={sale._id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-all rounded-lg border-b border-transparent hover:border-slate-100 dark:hover:border-white/10">
                                         <td className="px-6 py-4 rounded-l-lg">
                                             <div className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{sale.customer?.name || 'Unknown'}</div>
                                         </td>
@@ -763,9 +623,7 @@ export function CRMDashboard() {
                                                     <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-700 dark:text-indigo-300 text-xs font-bold ring-2 ring-white dark:ring-white/10 shadow-sm">
                                                         {sale.profile?.full_name?.charAt(0)}
                                                     </div>
-                                                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-surface-dark rounded-full"></div>
                                                 </div>
-
                                                 <span className="text-gray-700 dark:text-gray-200 font-medium">{sale.profile?.full_name}</span>
                                             </div>
                                         </td>
@@ -778,7 +636,6 @@ export function CRMDashboard() {
                                 ))}
                             </tbody>
                         </table>
-                        {recentSales.length === 0 && <p className="text-center text-gray-500 py-8">No recent transactions</p>}
                     </div>
                 </CardContent>
             </Card>

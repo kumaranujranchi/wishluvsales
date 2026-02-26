@@ -1,24 +1,32 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useDialog } from '../../contexts/DialogContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import { Profile, Target } from '../../types/database';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 interface TargetFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    editingTarget?: Target | null;
+    editingTarget?: any | null; // Convex Doc<"targets">
 }
 
 export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: TargetFormModalProps) {
     const dialog = useDialog();
-    const [executives, setExecutives] = useState<Profile[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Convex Queries
+    const profiles = useQuery(api.profiles.list) || [];
+    const addTarget = useMutation(api.targets.add);
+    const updateTarget = useMutation(api.targets.update);
+
+    const executives = useMemo(() => {
+        return profiles.filter(p => ['sales_executive', 'team_leader'].includes(p.role) && p.is_active);
+    }, [profiles]);
 
     const [formData, setFormData] = useState({
         userId: '',
@@ -28,11 +36,10 @@ export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: T
 
     useEffect(() => {
         if (isOpen) {
-            loadExecutives();
             if (editingTarget) {
                 setFormData({
                     userId: editingTarget.user_id,
-                    month: editingTarget.start_date.slice(0, 7),
+                    month: (editingTarget.start_date || '').slice(0, 7),
                     sqft: (editingTarget.target_sqft || 0).toString()
                 });
             } else {
@@ -45,43 +52,36 @@ export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: T
         }
     }, [isOpen, editingTarget]);
 
-    const loadExecutives = async () => {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('role', ['sales_executive', 'team_leader'])
-            .eq('is_active', true);
-        if (data) setExecutives(data);
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setSubmitting(true);
 
         try {
             // Calculate Start/End dates
             const date = new Date(formData.month + '-01');
             const startDate = startOfMonth(date);
             const endDate = endOfMonth(date);
+            const now = new Date().toISOString();
 
             const payload = {
-                user_id: formData.userId,
+                user_id: formData.userId as any, // Convex Id
                 period_type: 'monthly',
                 start_date: format(startDate, 'yyyy-MM-dd'),
                 end_date: format(endDate, 'yyyy-MM-dd'),
                 target_sqft: parseFloat(formData.sqft) || 0,
-                // Zero out unused fields
                 target_amount: 0,
-                target_units: 0
+                target_units: 0,
+                created_at: editingTarget?.created_at || now,
+                updated_at: now
             };
 
-            const { error } = editingTarget
-                ? await supabase.from('sales_targets').update(payload).eq('id', editingTarget.id)
-                : await supabase.from('sales_targets').insert(payload);
-
-            if (error) {
-                if (error.code === '23505') throw new Error('A target for this user and month already exists.');
-                throw error;
+            if (editingTarget) {
+                await updateTarget({
+                    id: editingTarget._id,
+                    ...payload,
+                });
+            } else {
+                await addTarget(payload);
             }
 
             await dialog.alert(editingTarget ? 'Target updated!' : 'Target assigned successfully!', { variant: 'success' });
@@ -91,7 +91,7 @@ export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: T
             console.error(err);
             await dialog.alert(err.message || 'Failed to save target.', { variant: 'danger' });
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -107,7 +107,7 @@ export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: T
                     label="Sales Executive / Leader"
                     value={formData.userId}
                     onChange={e => setFormData({ ...formData, userId: e.target.value })}
-                    options={executives.map(ex => ({ label: `${ex.full_name} (${ex.role.replace('_', ' ')})`, value: ex.id }))}
+                    options={executives.map(ex => ({ label: `${ex.full_name} (${ex.role.replace('_', ' ')})`, value: ex._id }))}
                     required
                     disabled={!!editingTarget}
                 />
@@ -137,7 +137,7 @@ export function TargetFormModal({ isOpen, onClose, onSuccess, editingTarget }: T
 
                 <div className="flex justify-end pt-4">
                     <Button type="button" variant="ghost" onClick={onClose} className="mr-2">Cancel</Button>
-                    <Button type="submit" variant="primary" isLoading={loading}>Save Target</Button>
+                    <Button type="submit" variant="primary" isLoading={submitting}>Save Target</Button>
                 </div>
             </form>
         </Modal>

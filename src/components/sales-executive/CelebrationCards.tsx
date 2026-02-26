@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Gift, Heart, Briefcase } from 'lucide-react'; // Icons
 import { format, parseISO, getYear, setYear, differenceInDays, isValid, addYears, startOfDay } from 'date-fns';
@@ -15,33 +16,22 @@ interface CelebrationEvent {
 }
 
 export function CelebrationCards() {
+    const rawProfiles = useQuery(api.profiles.list);
     const [birthdays, setBirthdays] = useState<CelebrationEvent[]>([]);
     const [anniversaries, setAnniversaries] = useState<CelebrationEvent[]>([]);
     const [workAnniversaries, setWorkAnniversaries] = useState<CelebrationEvent[]>([]);
-    const [loading, setLoading] = useState(true);
+    const loading = rawProfiles === undefined;
 
     useEffect(() => {
-        loadCelebrations();
-    }, []);
-
-    const loadCelebrations = async () => {
-        try {
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, image_url, dob, marriage_anniversary, joining_date')
-                .eq('is_active', true);
-
-            if (error) throw error;
-
-            if (profiles) {
-                processCelebrations(profiles);
-            }
-        } catch (err) {
-            console.error('Error loading celebrations:', err);
-        } finally {
-            setLoading(false);
+        if (rawProfiles) {
+            // Map Convex _id to id for compatibility
+            const processedProfiles = rawProfiles.map((p: any) => ({
+                ...p,
+                id: p._id
+            }));
+            processCelebrations(processedProfiles);
         }
-    };
+    }, [rawProfiles]);
 
     const processCelebrations = (profiles: Partial<Profile>[]) => {
         const today = startOfDay(new Date());

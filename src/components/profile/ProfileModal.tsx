@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { supabase } from '../../lib/supabase';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Modal, ModalFooter } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Eye, EyeOff, Shield, Lock, Check, User, Calendar, Phone } from 'lucide-react';
+import { Eye, EyeOff, Shield, Lock, Check, User, Phone } from 'lucide-react';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -14,7 +15,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileModalProps) {
-    const { profile, signOut } = useAuth();
+    const { profile } = useAuth();
     const dialog = useDialog();
     const [activeTab, setActiveTab] = useState<'details' | 'security'>('details');
 
@@ -98,18 +99,22 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
         setImageError(true);
     };
 
+    const updateProfile = useMutation(api.profiles.update);
+
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase.from('profiles').update({
+            if (!profile?.id) throw new Error("Profile ID not found");
+            
+            await updateProfile({
+                id: profile.id as any,
                 phone: profileData.phone,
-                dob: profileData.dob || null,
-                marriage_anniversary: profileData.marriageAnniversary || null,
-                joining_date: profileData.joiningDate || null
-            }).eq('id', profile?.id);
-
-            if (error) throw error;
+                dob: profileData.dob || undefined,
+                marriage_anniversary: profileData.marriageAnniversary || undefined,
+                joining_date: profileData.joiningDate || undefined,
+                updated_at: new Date().toISOString()
+            });
 
             await dialog.alert('Profile details updated successfully!', { variant: 'success', title: 'Success' });
             // We might want to refresh profile context here ideally, but Supabase realtime or next fetch will catch it.
@@ -128,44 +133,10 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
         setError('');
 
         try {
-            // 1. Update Password in Supabase Auth
-            const { error: updateError } = await supabase.auth.updateUser({
-                password: newPassword
+            await dialog.alert('Password change should be managed through your Account Settings.', {
+                variant: 'default',
+                title: 'Security'
             });
-
-            if (updateError) throw updateError;
-
-            // 2. Update force_password_change flag in profile
-            if (profile) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({ force_password_change: false })
-                    .eq('id', profile.id);
-
-                if (profileError) {
-                    console.error('Failed to update profile flag:', profileError);
-                }
-
-                // Log the activity
-                await supabase.from('activity_log').insert({
-                    user_id: profile.id,
-                    action: 'USER_PASSWORD_CHANGED',
-                    entity_type: 'profile',
-                    entity_id: profile.id,
-                    details: {
-                        reason: forceChange ? 'forced_change' : 'user_initiated'
-                    }
-                });
-            }
-
-            await dialog.alert('Password updated successfully! Please log in again with your new password.', {
-                variant: 'success',
-                title: 'Password Changed'
-            });
-
-            await signOut(); // Force re-login
-            window.location.href = '/login';
-
         } catch (err: any) {
             console.error('Password change error:', err);
             setError(err.message || 'Failed to update password');

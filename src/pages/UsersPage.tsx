@@ -3,11 +3,10 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
-import { logActivity } from '../lib/logger';
+import { Badge } from '../components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Modal, ModalFooter } from '../components/ui/Modal';
@@ -29,6 +28,7 @@ export function UsersPage() {
   const addProfile = useMutation(api.profiles.add);
   const updateProfile = useMutation(api.profiles.update);
   const removeProfile = useMutation(api.profiles.remove);
+  const logActivity = useMutation(api.activity_logs.log);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +127,7 @@ export function UsersPage() {
     setIsSubmitting(true);
 
     try {
+      const now = new Date().toISOString();
       if (editingUserId) {
         // Update existing profile
         await updateProfile({
@@ -140,10 +141,15 @@ export function UsersPage() {
           dob: formData.dob || undefined,
           marriage_anniversary: formData.marriageAnniversary || undefined,
           joining_date: formData.joiningDate || undefined,
-          updated_at: new Date().toISOString()
+          updated_at: now
         });
 
-        await logActivity('USER_UPDATED', `User profile updated: ${formData.fullName}`);
+        await logActivity({
+            user_id: profile?.id,
+            action: 'USER_UPDATED',
+            details: `User profile updated: ${formData.fullName}`,
+            created_at: now
+        });
         await dialog.alert('User updated successfully!', { variant: 'success', title: 'Success' });
       } else {
         // Create new profile in Convex
@@ -161,11 +167,16 @@ export function UsersPage() {
           joining_date: formData.joiningDate || undefined,
           is_active: true,
           force_password_change: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: now,
+          updated_at: now
         });
 
-        await logActivity('USER_CREATED', `New user created: ${formData.fullName} (${formData.role})`);
+        await logActivity({
+            user_id: profile?.id,
+            action: 'USER_CREATED',
+            details: `New user created: ${formData.fullName} (${formData.role})`,
+            created_at: now
+        });
         await dialog.alert('User added successfully! They can now sign in using Clerk with their email.', { 
             variant: 'success', 
             title: 'Success' 
@@ -196,13 +207,19 @@ export function UsersPage() {
       if (!confirmed) return;
 
       try {
+        const now = new Date().toISOString();
         await updateProfile({
           id: user._id,
           is_active: !user.is_active,
-          updated_at: new Date().toISOString()
+          updated_at: now
         });
 
-        await logActivity(`USER_${action.toUpperCase()}D`, `User ${user.full_name} was ${action}d`);
+        await logActivity({
+            action: `USER_${action.toUpperCase()}D`,
+            details: `User ${user.full_name} was ${action}d`,
+            user_id: profile?.id,
+            created_at: now
+        });
         await dialog.alert(`User ${action}d successfully.`, { variant: 'success', title: 'Success' });
       } catch (error) {
         console.error(`Error ${action}ing user:`, error);
@@ -222,8 +239,14 @@ export function UsersPage() {
     if (!confirmed) return;
 
     try {
+      const now = new Date().toISOString();
       await removeProfile({ id });
-      await logActivity('USER_DELETED', `User ${id} deleted`);
+      await logActivity({
+          action: 'USER_DELETED',
+          details: `User ${id} deleted`,
+          user_id: profile?.id,
+          created_at: now
+      });
       await dialog.alert('User deleted.', { variant: 'success', title: 'Deleted' });
     } catch (error) {
       console.error('Error deleting user:', error);
