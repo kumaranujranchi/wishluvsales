@@ -105,11 +105,10 @@ export function TeamLeaderDashboard() {
   const profilesRaw = useQuery(api.profiles.list);
   const salesRaw = useQuery(api.sales.list);
   const targetsRaw = useQuery(api.targets.listAll);
-  const siteVisits = useQuery(api.site_visits.listRecent);
   const projectsRaw = useQuery(api.projects.list);
 
   const stats = useMemo(() => {
-    if (!profile || !profilesRaw || !salesRaw || !targetsRaw || !siteVisits || !projectsRaw) return null;
+    if (!profile || !profilesRaw || !salesRaw || !targetsRaw || !projectsRaw) return null;
 
     const now = new Date();
     const currentYearStart = startOfYear(now);
@@ -219,10 +218,9 @@ export function TeamLeaderDashboard() {
       }
     });
 
-    // 7. Site Visits
-    const teamVisits = siteVisitsRaw.filter((v: any) => teamIds.has(v.requested_by));
-    const totalVisits = teamVisits.length;
-    const conversion = totalVisits > 0 ? (mtdSalesData.length / totalVisits) * 100 : 0;
+    // 7. Site Visits (temporarily removed)
+    const totalVisits = 0;
+    const conversion = 0;
 
     // 8. Project Wise
     const projectSalesMap = new Map<string, number>();
@@ -253,7 +251,7 @@ export function TeamLeaderDashboard() {
         }
       }
     };
-  }, [profile, profilesRaw, salesRaw, targetsRaw, siteVisits, projectsRaw]);
+  }, [profile, profilesRaw, salesRaw, targetsRaw, projectsRaw]);
 
   if (!stats) {
     return <LoadingSpinner size="lg" fullScreen />;

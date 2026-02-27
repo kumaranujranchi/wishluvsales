@@ -21,8 +21,6 @@ export function ReceptionistDashboard() {
     const paymentsRaw = useQuery(api.payments.listAll);
     const targetsRaw = useQuery(api.targets.listAll);
     const incentivesRaw = useQuery(api.incentives.listAll);
-    const announcementsRaw = useQuery(api.announcements.listAll);
-    const activityLogsRaw = useQuery(api.activity_logs.list);
     const projectsRaw = useQuery(api.projects.list);
     const profilesRaw = useQuery(api.profiles.list);
 
@@ -32,9 +30,12 @@ export function ReceptionistDashboard() {
     }, []);
 
     const stats = useMemo(() => {
-        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !incentivesRaw || !announcementsRaw || !activityLogsRaw || !profilesRaw || !projectsRaw) {
+        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !incentivesRaw || !profilesRaw || !projectsRaw) {
             return null;
         }
+        // Temporarily empty arrays for removed features
+        const announcementsRaw: any[] = [];
+        const activityLogsRaw: any[] = [];
 
         const now = new Date();
         const monthStart = startOfMonth(now);
@@ -127,7 +128,7 @@ export function ReceptionistDashboard() {
                 yearly: yearlyLeaderboard
             }
         };
-    }, [profile, salesRaw, paymentsRaw, targetsRaw, incentivesRaw, announcementsRaw, activityLogsRaw, projectsRaw, profilesRaw]);
+    }, [profile, salesRaw, paymentsRaw, targetsRaw, incentivesRaw, projectsRaw, profilesRaw]);
 
     if (!stats) return <LoadingSpinner fullScreen />;
 

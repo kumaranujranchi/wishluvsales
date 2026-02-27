@@ -10,9 +10,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
-import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { TargetsPage } from './pages/TargetsPage';
-import { SiteVisitsPage } from './pages/SiteVisitsPage';
 import { SalesPage } from './pages/SalesPage';
 import { IncentivesPage } from './pages/IncentivesPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -98,35 +96,12 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
-              <Route
-                path="/announcements"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <AnnouncementsPage />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-
               <Route
                 path="/targets"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director']}>
                     <DashboardLayout>
                       <TargetsPage />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/site-visits"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <SiteVisitsPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

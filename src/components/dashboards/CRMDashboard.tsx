@@ -78,9 +78,7 @@ export function CRMDashboard() {
     const projects = useQuery(api.projects.list);
     const sales = useQuery(api.sales.list);
     const payments = useQuery(api.payments.listAll);
-    const siteVisits = useQuery(api.site_visits.listRecent);
-    const segments = useQuery(api.departments.list) || []; 
-    const announcementsRaw = useQuery(api.announcements.listAll);
+    const segments = useQuery(api.departments.list) || [];
     const activityLogsRaw = useQuery(api.activity_logs.list);
 
     // Filters
@@ -88,7 +86,7 @@ export function CRMDashboard() {
     const [leaderboardRoleFilter, setLeaderboardRoleFilter] = useState<'all' | 'sales_executive' | 'team_leader'>('all');
 
     const statsData = useMemo(() => {
-        if (!profiles || !projects || !sales || !payments || !siteVisits || !announcementsRaw || !activityLogsRaw) return null;
+        if (!profiles || !projects || !sales || !payments || !activityLogsRaw) return null;
 
         const now = new Date();
         const monthStart = startOfMonth(now);
@@ -98,7 +96,7 @@ export function CRMDashboard() {
         const totalProjects = projects.filter((p: any) => p.is_active).length;
         const totalTeamMembers = profiles.filter((p: any) => p.is_active).length;
         const totalDepartments = segments.length; // Fallback or dynamic
-        const pendingSiteVisits = siteVisits.filter((v: any) => v.status === 'pending').length;
+        const pendingSiteVisits = 0; // Site visits feature temporarily removed
 
         // 2. Sales Metrics
         const currentMonthSales = sales.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
@@ -198,10 +196,7 @@ export function CRMDashboard() {
                 profile: profileMap.get(s.sales_executive_id)
             }));
 
-        const announcements = announcementsRaw
-            .filter((a: any) => a.is_published)
-            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 3);
+        const announcements: any[] = []; // Announcements feature temporarily removed
 
         const activityLogs = activityLogsRaw
             .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -224,7 +219,7 @@ export function CRMDashboard() {
             announcements,
             activityLogs
         };
-    }, [profiles, projects, sales, payments, siteVisits, segments, announcementsRaw, activityLogsRaw, leaderboardTimeFilter, leaderboardRoleFilter]);
+    }, [profiles, projects, sales, payments, segments, activityLogsRaw, leaderboardTimeFilter, leaderboardRoleFilter]);
 
     if (!statsData) {
         return <LoadingSpinner size="lg" fullScreen />;

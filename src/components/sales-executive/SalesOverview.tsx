@@ -22,9 +22,6 @@ export function SalesOverview() {
     const salesRaw = useQuery(api.sales.list);
     const paymentsRaw = useQuery(api.payments.listAll);
     const targetsRaw = useQuery(api.targets.listAll);
-    const incentivesRaw = useQuery((api as any).incentives?.listAll); // Cast to any if type inference fails for now
-    const announcementsRaw = useQuery((api as any).announcements?.listAll);
-    const activityLogsRaw = useQuery((api as any).activity_logs?.list); // Cast to any if type inference fails for now
     const projectsRaw = useQuery(api.projects.list);
     const profilesRaw = useQuery(api.profiles.list);
 
@@ -35,9 +32,13 @@ export function SalesOverview() {
 
     const stats = useMemo(() => {
         // Return null if any essential data is still loading
-        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !incentivesRaw || !announcementsRaw || !activityLogsRaw || !profilesRaw || !projectsRaw) {
+        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !profilesRaw || !projectsRaw) {
             return null;
         }
+        // Temporarily empty arrays for removed features
+        const incentivesRaw: any[] = [];
+        const announcementsRaw: any[] = [];
+        const activityLogsRaw: any[] = [];
 
         const now = new Date();
         const monthStart = startOfMonth(now);
@@ -144,7 +145,7 @@ export function SalesOverview() {
                 yearly: yearlyLeaderboard
             }
         };
-    }, [profile, salesRaw, paymentsRaw, targetsRaw, incentivesRaw, announcementsRaw, activityLogsRaw, projectsRaw, profilesRaw, isReceptionist]);
+    }, [profile, salesRaw, paymentsRaw, targetsRaw, projectsRaw, profilesRaw, isReceptionist]);
 
     if (!stats) return <LoadingSpinner fullScreen />;
 
