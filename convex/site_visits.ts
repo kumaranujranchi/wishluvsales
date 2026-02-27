@@ -4,46 +4,62 @@ import { query, mutation } from "./_generated/server";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
+    console.log("Entering site_visits:listAll");
     try {
-      const visits = await ctx.db.query("site_visits").order("desc").collect();
+      // Step 1: Raw query without ordering to rule out index issues
+      const visits = await ctx.db.query("site_visits").collect();
+      console.log(`Fetched ${visits.length} raw site visits`);
       
       const results = [];
       for (const visit of visits) {
-        let requester = null;
-        let driver = null;
-
         try {
-          // Only attempt ctx.db.get if it looks like a valid Convex ID
-          if (visit.requested_by && typeof visit.requested_by === "string" && visit.requested_by.length > 5) {
-             // Try to get by ID, if it fails, catch it specifically
-             try {
-                requester = await ctx.db.get(visit.requested_by as any);
-             } catch (e) {
-                // If ID is invalid format, requester stays null
-                console.warn(`Invalid requester ID: ${visit.requested_by}`);
-             }
+          let requester = null;
+          let driver = null;
+
+          // Extreme caution with ID lookups
+          if (visit.requested_by && typeof visit.requested_by === "string") {
+            try {
+              // Convex IDs usually start with "j" or similar if they are generic
+              // If it's a Supabase UUID, db.get will throw
+              requester = await ctx.db.get(visit.requested_by as any);
+            } catch (e) {
+              // Silently ignore invalid IDs during this phase
+            }
           }
 
-          if (visit.driver_id && typeof visit.driver_id === "string" && visit.driver_id.length > 5) {
-             try {
-                driver = await ctx.db.get(visit.driver_id as any);
-             } catch (e) {
-                console.warn(`Invalid driver ID: ${visit.driver_id}`);
-             }
+          if (visit.driver_id && typeof visit.driver_id === "string") {
+            try {
+              driver = await ctx.db.get(visit.driver_id as any);
+            } catch (e) {
+              // Silently ignore
+            }
           }
-        } catch (innerError) {
-          console.error("Inner error in site_visits mapping:", innerError);
+
+          results.push({
+            ...visit,
+            requester: requester ? { full_name: (requester as any).full_name } : null,
+            driver: driver ? { full_name: (driver as any).full_name } : null,
+          });
+        } catch (itemError) {
+          console.error("Error processing individual visit:", itemError);
+          // Still push the basic visit info even if lookup fails
+          results.push({
+            ...visit,
+            requester: null,
+            driver: null
+          });
         }
-
-        results.push({
-          ...visit,
-          requester: requester ? { full_name: (requester as any).full_name } : null,
-          driver: driver ? { full_name: (driver as any).full_name } : null,
-        });
       }
-      return results;
+      
+      // Sort manually in JS to avoid DB ordering issues
+      return results.sort((a, b) => {
+        const timeA = new Date(a.created_at || a._creationTime).getTime();
+        const timeB = new Date(b.created_at || b._creationTime).getTime();
+        return timeB - timeA;
+      });
     } catch (error) {
-      console.error("Critical error in site_visits:listAll:", error);
+      console.error("FATAL error in site_visits:listAll:", error);
+      // If we are here, something is very wrong with the DB access or schema
       return [];
     }
   },
