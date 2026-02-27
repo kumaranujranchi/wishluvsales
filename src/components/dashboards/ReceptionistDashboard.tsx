@@ -20,7 +20,6 @@ export function ReceptionistDashboard() {
     const salesRaw = useQuery(api.sales.list);
     const paymentsRaw = useQuery(api.payments.listAll);
     const targetsRaw = useQuery(api.targets.listAll);
-    const incentivesRaw = useQuery(api.incentives.listAll);
     const projectsRaw = useQuery(api.projects.list);
     const profilesRaw = useQuery(api.profiles.list);
 
@@ -30,7 +29,7 @@ export function ReceptionistDashboard() {
     }, []);
 
     const stats = useMemo(() => {
-        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !incentivesRaw || !profilesRaw || !projectsRaw) {
+        if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !profilesRaw || !projectsRaw) {
             return null;
         }
         // Temporarily empty arrays for removed features
@@ -54,9 +53,8 @@ export function ReceptionistDashboard() {
         
         const achievementPercent = totalTarget > 0 ? (revenue / totalTarget) * 100 : 0;
 
-        // Incentives (YTD)
-        const ytdIncentives = incentivesRaw.filter((inc: any) => inc.calculation_year === now.getFullYear());
-        const totalIncentives = ytdIncentives.reduce((sum: number, inc: any) => sum + Number(inc.total_incentive_amount || 0), 0);
+        // Incentives (YTD) - feature temporarily removed
+        const totalIncentives = 0;
 
         // YTD Calculations
         const ytdSales = salesRaw.filter((s: any) => isAfter(parseISO(s.sale_date), yearStart) || isSameMonth(parseISO(s.sale_date), yearStart));
@@ -128,7 +126,7 @@ export function ReceptionistDashboard() {
                 yearly: yearlyLeaderboard
             }
         };
-    }, [profile, salesRaw, paymentsRaw, targetsRaw, incentivesRaw, projectsRaw, profilesRaw]);
+    }, [profile, salesRaw, paymentsRaw, targetsRaw, projectsRaw, profilesRaw]);
 
     if (!stats) return <LoadingSpinner fullScreen />;
 

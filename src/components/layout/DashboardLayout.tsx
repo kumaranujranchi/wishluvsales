@@ -13,8 +13,6 @@ import {
   Briefcase,
   Target,
   TrendingUp,
-  Award,
-  FileText,
   Menu,
   LogOut,
   ChevronLeft,
@@ -44,8 +42,6 @@ const navItems: NavItem[] = [
   { label: 'Projects', path: '/projects', icon: Building, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Targets', path: '/targets', icon: Target, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Sales', path: '/sales', icon: TrendingUp, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant'] },
-  { label: 'Incentives', path: '/incentives', icon: Award, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant'] },
-  { label: 'Reports', path: '/reports', icon: FileText, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant'] },
 ];
 
 import { useMobile } from '../../hooks/useMobile';

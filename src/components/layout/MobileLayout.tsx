@@ -8,12 +8,8 @@ import {
     Users,
     Building,
     Briefcase,
-    Megaphone,
     Target,
-    Calendar,
     TrendingUp,
-    Award,
-    FileText,
     Contact,
     LogOut
 } from 'lucide-react';
@@ -28,12 +24,8 @@ const navItems = [
     { label: 'Users', path: '/users', icon: Users, roles: ['super_admin', 'admin', 'director'] },
     { label: 'Depts', path: '/departments', icon: Briefcase, roles: ['super_admin', 'admin', 'director'] },
     { label: 'Projects', path: '/projects', icon: Building, roles: ['super_admin', 'admin', 'director'] },
-    { label: 'News', path: '/announcements', icon: Megaphone, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'crm_staff', 'receptionist'] },
     { label: 'Targets', path: '/targets', icon: Target, roles: ['super_admin', 'admin', 'director'] },
-    { label: 'Visits', path: '/site-visits', icon: Calendar, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'crm_staff', 'driver'] },
     { label: 'Sales', path: '/sales', icon: TrendingUp, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'crm_staff', 'accountant'] },
-    { label: 'Incentives', path: '/incentives', icon: Award, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'accountant'] },
-    { label: 'Reports', path: '/reports', icon: FileText, roles: ['super_admin', 'admin', 'director'] },
 ];
 
 export function MobileLayout({ children }: MobileLayoutProps) {

@@ -12,8 +12,6 @@ import { DepartmentsPage } from './pages/DepartmentsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { TargetsPage } from './pages/TargetsPage';
 import { SalesPage } from './pages/SalesPage';
-import { IncentivesPage } from './pages/IncentivesPage';
-import { ReportsPage } from './pages/ReportsPage';
 import { MyPerformancePage } from './pages/MyPerformancePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 
@@ -118,27 +116,6 @@ function App() {
                 }
               />
 
-              <Route
-                path="/incentives"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <IncentivesPage />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <ReportsPage />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
             </Routes>
           </DialogProvider>
         </ThemeProvider>
