@@ -44,7 +44,7 @@ export function LoginPage() {
             </div>
 
             {/* Clerk SignIn Section */}
-            <div className="px-6 pt-8 pb-6 flex justify-center">
+            <div className="px-4 sm:px-8 pt-8 pb-6 flex justify-center">
               <SignIn
                 fallbackRedirectUrl="/dashboard"
                 appearance={{
@@ -58,25 +58,25 @@ export function LoginPage() {
                     headerSubtitle: 'hidden',
                     header: 'hidden',
                     // Card styling - seamless with white background
-                    card: 'shadow-none border-0 p-0 bg-transparent',
-                    rootBox: 'w-full',
+                    card: 'shadow-none border-0 p-2 sm:p-4 bg-transparent w-full',
+                    rootBox: 'w-full flex justify-center',
+                    formResendCodeLink: 'text-[#1673FF]',
                     // Form button styling
                     formButtonPrimary:
-                      'bg-gradient-to-r from-[#1673FF] to-[#0A1C37] hover:opacity-90 transition-all duration-200 text-white font-semibold py-3 rounded-xl w-full text-sm normal-case',
+                      'bg-gradient-to-r from-[#1673FF] to-[#0A1C37] hover:opacity-90 transition-all duration-200 text-white font-semibold py-3.5 rounded-xl w-full text-sm normal-case shadow-lg shadow-blue-500/20',
                     // Input field styling
                     formFieldInput:
-                      'border border-gray-200 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#1673FF]/30 focus:border-[#1673FF] outline-none w-full',
-                    formFieldLabel: 'text-gray-700 font-medium text-sm mb-1',
+                      'border border-gray-200 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#1673FF]/30 focus:border-[#1673FF] outline-none w-full transition-all duration-200 bg-gray-50/50',
+                    formFieldLabel: 'text-gray-700 font-semibold text-[13px] mb-1.5 ml-1',
                     // Social buttons
                     socialButtonsBlockButton:
-                      'border border-gray-200 rounded-xl py-3 text-sm font-medium hover:bg-gray-50 transition-colors',
-                    dividerLine: 'bg-gray-200',
-                    dividerText: 'text-gray-400 text-xs',
+                      'border border-gray-200 rounded-xl py-3 text-sm font-medium hover:bg-gray-50 transition-all duration-200 bg-white shadow-sm',
+                    dividerLine: 'bg-gray-100',
+                    dividerText: 'text-gray-400 text-xs font-medium uppercase tracking-wider',
                     // Footer - hide "Don't have an account" and "Secured by Clerk"
                     footer: 'hidden',
                     footerAction: 'hidden',
                     identityPreviewEditButton: 'text-[#1673FF]',
-                    formResendCodeLink: 'text-[#1673FF]',
                   },
                 }}
               />
