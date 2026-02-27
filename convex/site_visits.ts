@@ -4,62 +4,54 @@ import { query, mutation } from "./_generated/server";
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    console.log("Entering site_visits:listAll");
     try {
-      // Step 1: Raw query without ordering to rule out index issues
+      // Step 1: Fetch raw visits. Limit to 100 to be safe for now, though 
+      // typically we'd paginate. Ordering manually in JS later.
       const visits = await ctx.db.query("site_visits").collect();
-      console.log(`Fetched ${visits.length} raw site visits`);
       
-      const results = [];
-      for (const visit of visits) {
-        try {
-          let requester = null;
-          let driver = null;
-
-          // Extreme caution with ID lookups
-          if (visit.requested_by && typeof visit.requested_by === "string") {
-            try {
-              // Convex IDs usually start with "j" or similar if they are generic
-              // If it's a Supabase UUID, db.get will throw
-              requester = await ctx.db.get(visit.requested_by as any);
-            } catch (e) {
-              // Silently ignore invalid IDs during this phase
-            }
-          }
-
-          if (visit.driver_id && typeof visit.driver_id === "string") {
-            try {
-              driver = await ctx.db.get(visit.driver_id as any);
-            } catch (e) {
-              // Silently ignore
-            }
-          }
-
-          results.push({
-            ...visit,
-            requester: requester ? { full_name: (requester as any).full_name } : null,
-            driver: driver ? { full_name: (driver as any).full_name } : null,
-          });
-        } catch (itemError) {
-          console.error("Error processing individual visit:", itemError);
-          // Still push the basic visit info even if lookup fails
-          results.push({
-            ...visit,
-            requester: null,
-            driver: null
-          });
+      // Step 2: Fetch all profiles to avoid N+1 lookups
+      const allProfiles = await ctx.db.query("profiles").collect();
+      
+      // Step 3: Create faster lookups for both Convex IDs and legacy Supabase IDs
+      const convexIdToProfile = new Map(allProfiles.map(p => [p._id.toString(), p]));
+      const supabaseIdToProfile = new Map();
+      for (const p of allProfiles) {
+        if (p.supabase_id) {
+          supabaseIdToProfile.set(p.supabase_id, p);
         }
       }
       
-      // Sort manually in JS to avoid DB ordering issues
-      return results.sort((a, b) => {
-        const timeA = new Date(a.created_at || a._creationTime).getTime();
-        const timeB = new Date(b.created_at || b._creationTime).getTime();
-        return timeB - timeA;
+      const results = visits.map((visit) => {
+        // Find requester
+        let requesterProfile = null;
+        if (visit.requested_by) {
+          requesterProfile = convexIdToProfile.get(visit.requested_by) || 
+                             supabaseIdToProfile.get(visit.requested_by);
+        }
+
+        // Find driver
+        let driverProfile = null;
+        if (visit.driver_id) {
+          driverProfile = convexIdToProfile.get(visit.driver_id) || 
+                          supabaseIdToProfile.get(visit.driver_id);
+        }
+
+        return {
+          ...visit,
+          requester: requesterProfile ? { full_name: requesterProfile.full_name } : null,
+          driver: driverProfile ? { full_name: driverProfile.full_name } : null,
+        };
       });
+
+      // Step 4: Sort by date (newest first)
+      return results.sort((a, b) => {
+        const dateA = new Date(a.visit_date || a.created_at || a._creationTime).getTime();
+        const dateB = new Date(b.visit_date || b.created_at || b._creationTime).getTime();
+        return (dateB || 0) - (dateA || 0);
+      });
+
     } catch (error) {
-      console.error("FATAL error in site_visits:listAll:", error);
-      // If we are here, something is very wrong with the DB access or schema
+      console.error("Critical error in site_visits:listAll:", error);
       return [];
     }
   },
