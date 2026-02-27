@@ -494,9 +494,15 @@ export function SalesPage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex flex-col gap-1 items-center">
-                          {sale.is_agreement_done && <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">Agreement</span>}
-                          {sale.is_registry_done && <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Registry</span>}
-                          {!sale.is_agreement_done && !sale.is_registry_done && <span className="text-xs text-gray-400">Pending</span>}
+                          {(sale.metadata as any)?.booking_status === 'cancelled' ? (
+                            <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-semibold border border-red-200">🚫 Cancelled</span>
+                          ) : (
+                            <>
+                              {sale.is_agreement_done && <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">Agreement</span>}
+                              {sale.is_registry_done && <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Registry</span>}
+                              {!sale.is_agreement_done && !sale.is_registry_done && <span className="text-xs text-gray-400">Pending</span>}
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">
