@@ -186,8 +186,11 @@ export function SalesPage() {
       // Search
       const queryLower = searchQuery.toLowerCase();
       if (searchQuery) {
+        const customer = customersList.find((c: any) => c._id === sale.customer_id || c.supabase_id === sale.customer_id);
+        const customerName = customer?.name || '';
         const match = sale.unit_number?.toLowerCase().includes(queryLower) || 
-                      sale.sale_number.toLowerCase().includes(queryLower);
+                      sale.sale_number.toLowerCase().includes(queryLower) ||
+                      customerName.toLowerCase().includes(queryLower);
         if (!match) return false;
       }
 
@@ -373,7 +376,7 @@ export function SalesPage() {
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
               <Input
-                placeholder="Search Unit/Sale #..."
+                placeholder="Search Customer/Unit..."
                 className="pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -459,7 +462,7 @@ export function SalesPage() {
                     <th className="px-4 py-3 rounded-tl-lg cursor-pointer hover:bg-gray-100" onClick={() => handleSort('sale_date')}>
                       <div className="flex items-center gap-1">Date {sortConfig.column === 'sale_date' && (sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}</div>
                     </th>
-                    <th className="px-4 py-3">Sale #</th>
+                    <th className="px-4 py-3">Customer Name</th>
                     <th className="px-4 py-3">Project & Unit</th>
                     <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total_revenue')}>
                       <div className="flex items-center justify-end gap-1">Total Revenue {sortConfig.column === 'total_revenue' && (sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}</div>
@@ -475,7 +478,10 @@ export function SalesPage() {
                         {new Date(sale.sale_date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 font-medium text-[#0A1C37] dark:text-gray-200">
-                        {sale.sale_number}
+                        {(() => {
+                          const customer = customersList.find((c: any) => c._id === sale.customer_id || c.supabase_id === sale.customer_id);
+                          return customer?.name || <span className="text-gray-400 text-xs">N/A</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-gray-900 dark:text-gray-300">
