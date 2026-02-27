@@ -7,18 +7,43 @@ export const listAll = query({
     try {
       const visits = await ctx.db.query("site_visits").order("desc").collect();
       
-      return await Promise.all(visits.map(async (visit) => {
-        const requester = await ctx.db.get(visit.requested_by as any) as any;
-        const driver = visit.driver_id ? await ctx.db.get(visit.driver_id as any) as any : null;
-        
-        return {
+      const results = [];
+      for (const visit of visits) {
+        let requester = null;
+        let driver = null;
+
+        try {
+          // Only attempt ctx.db.get if it looks like a valid Convex ID
+          if (visit.requested_by && typeof visit.requested_by === "string" && visit.requested_by.length > 5) {
+             // Try to get by ID, if it fails, catch it specifically
+             try {
+                requester = await ctx.db.get(visit.requested_by as any);
+             } catch (e) {
+                // If ID is invalid format, requester stays null
+                console.warn(`Invalid requester ID: ${visit.requested_by}`);
+             }
+          }
+
+          if (visit.driver_id && typeof visit.driver_id === "string" && visit.driver_id.length > 5) {
+             try {
+                driver = await ctx.db.get(visit.driver_id as any);
+             } catch (e) {
+                console.warn(`Invalid driver ID: ${visit.driver_id}`);
+             }
+          }
+        } catch (innerError) {
+          console.error("Inner error in site_visits mapping:", innerError);
+        }
+
+        results.push({
           ...visit,
-          requester: requester ? { full_name: requester.full_name } : null,
-          driver: driver ? { full_name: driver.full_name } : null,
-        };
-      }));
+          requester: requester ? { full_name: (requester as any).full_name } : null,
+          driver: driver ? { full_name: (driver as any).full_name } : null,
+        });
+      }
+      return results;
     } catch (error) {
-      console.error("Error fetching site visits:", error);
+      console.error("Critical error in site_visits:listAll:", error);
       return [];
     }
   },
