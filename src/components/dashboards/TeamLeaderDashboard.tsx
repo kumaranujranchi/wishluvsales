@@ -116,22 +116,16 @@ export function TeamLeaderDashboard() {
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     const lastMonthEnd = endOfMonth(subMonths(now, 1));
 
-    // 1. Team Members — match against both Convex _id and supabase_id
-    const tlId = profile.id; // Convex _id
-    const tlSupabaseId = (profile as any).supabase_id;
+    // 1. Team Members — using Convex _id only
+    const tlId = profile.id;
     const teamMembers = profilesRaw.filter((p: any) => 
-      p.reporting_manager_id === tlId || 
-      p.reporting_manager_id === tlSupabaseId ||
-      p._id === tlId  // include TL themselves
+      p.reporting_manager_id === tlId || p._id === tlId
     ).filter((p: any) => p.is_active !== false);
 
     const teamIds = new Set(teamMembers.map((m: any) => m._id));
-    const teamSupabaseIds = new Set(teamMembers.map((m: any) => m.supabase_id).filter(Boolean));
 
-    // 2. Sales Data for Team (match by Convex _id OR supabase_id)
-    const teamSales = salesRaw.filter((s: any) => 
-      teamIds.has(s.sales_executive_id) || teamSupabaseIds.has(s.sales_executive_id)
-    );
+    // 2. Sales Data for Team
+    const teamSales = salesRaw.filter((s: any) => teamIds.has(s.sales_executive_id));
 
     // 3. MTD Metrics
     const mtdSalesData = teamSales.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));

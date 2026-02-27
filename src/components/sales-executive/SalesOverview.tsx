@@ -50,13 +50,13 @@ export function SalesOverview() {
         const monthStart = startOfMonth(now);
         const yearStart = startOfYear(now);
 
-        // Match sales by both Convex _id AND supabase_id (for migrated data)
-        const myIds = new Set([profile.id, (profile as any).supabase_id].filter(Boolean));
+        // Use Convex _id only (migration converted all supabase_ids)
+        const myProfileId = profile.id;
 
         // Filter sales based on role
         const mySalesFiltered = salesRaw.filter((s: any) => {
             if (isReceptionist) return true;
-            return myIds.has(s.sales_executive_id);
+            return s.sales_executive_id === myProfileId;
         });
 
         // Current Month Sales & Revenue
@@ -65,7 +65,7 @@ export function SalesOverview() {
 
         // Target for current month
         const myTargetDoc = targetsRaw.find((t: any) =>
-            myIds.has(t.user_id) && // Match by _id or supabase_id
+            t.user_id === myProfileId &&
             (t.period_start && (isAfter(safeParseISO(t.period_start), monthStart) || isSameMonth(safeParseISO(t.period_start), monthStart)))
         );
         const target = myTargetDoc?.target_amount || 0;
@@ -73,7 +73,7 @@ export function SalesOverview() {
 
         // Incentives (YTD)
         const myIncentives = incentivesRaw.filter((inc: any) =>
-            myIds.has(inc.sales_executive_id) && inc.calculation_year === now.getFullYear()
+            inc.sales_executive_id === myProfileId && inc.calculation_year === now.getFullYear()
         );
         const totalIncentives = myIncentives.reduce((sum: number, inc: any) => sum + Number(inc.total_incentive_amount || 0), 0);
 
