@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SignOutButton, UserButton } from '@clerk/clerk-react';
+import { SignOutButton } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileModal } from '../profile/ProfileModal';
 import { Tooltip } from '../ui/Tooltip';
@@ -97,8 +97,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <div className="h-8 w-[1px] bg-gray-200 dark:bg-white/10 mx-2 hidden md:block"></div>
 
-            <div className="flex items-center gap-3 pl-1 pr-2 py-1">
-              <UserButton afterSignOutUrl="/login" />
+            <div 
+              className="flex items-center gap-3 pl-1 pr-2 py-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl transition-colors"
+              onClick={() => setIsProfileOpen(true)}
+              title="Click to edit profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-sm ring-2 ring-white dark:ring-white/10 shadow-sm">
+                {profile?.image_url ? (
+                  <img src={profile.image_url} className="w-full h-full rounded-full object-cover" alt={profile.full_name} />
+                ) : (
+                  profile?.full_name?.charAt(0)
+                )}
+              </div>
               <div className="hidden md:block text-right">
                 <p className="text-sm font-semibold text-gray-700 dark:text-white leading-none">{profile?.full_name}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium capitalize mt-1">{profile?.role?.replace('_', ' ')}</p>
