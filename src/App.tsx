@@ -97,7 +97,7 @@ function App() {
               <Route
                 path="/targets"
                 element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director']}>
+                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director', 'team_leader', 'sales_executive']}>
                     <DashboardLayout>
                       <TargetsPage />
                     </DashboardLayout>
