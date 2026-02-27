@@ -30,6 +30,12 @@ export function SalesOverview() {
         return () => clearInterval(timer);
     }, []);
 
+    // Safe parseISO - returns epoch date if value is null/undefined
+    const safeParseISO = (dateStr: string | null | undefined): Date => {
+        if (!dateStr) return new Date(0);
+        try { return parseISO(String(dateStr)); } catch { return new Date(0); }
+    };
+
     const stats = useMemo(() => {
         // Return null if any essential data is still loading
         if (!profile || !salesRaw || !paymentsRaw || !targetsRaw || !profilesRaw || !projectsRaw) {
@@ -53,13 +59,13 @@ export function SalesOverview() {
         });
 
         // Current Month Sales & Revenue
-        const currentMonthSales = mySalesFiltered.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+        const currentMonthSales = mySalesFiltered.filter((s: any) => s.sale_date && isSameMonth(safeParseISO(s.sale_date), now));
         const revenue = currentMonthSales.reduce((sum: number, sale: any) => sum + Number(sale.total_revenue || 0), 0);
 
         // Target for current month
         const myTargetDoc = targetsRaw.find((t: any) =>
             (t.user_id === profileId || t.user_id === (profile as any)._id) && // Handle potential _id vs id comparison
-            (isAfter(parseISO(t.period_start), monthStart) || isSameMonth(parseISO(t.period_start), monthStart))
+            (t.period_start && (isAfter(safeParseISO(t.period_start), monthStart) || isSameMonth(safeParseISO(t.period_start), monthStart)))
         );
         const target = myTargetDoc?.target_amount || 0;
         const achievement = target > 0 ? (revenue / target) * 100 : 0;
@@ -71,7 +77,7 @@ export function SalesOverview() {
         const totalIncentives = myIncentives.reduce((sum: number, inc: any) => sum + Number(inc.total_incentive_amount || 0), 0);
 
         // YTD Calculations
-        const ytdSales = mySalesFiltered.filter((s: any) => isAfter(parseISO(s.sale_date), yearStart) || isSameMonth(parseISO(s.sale_date), yearStart));
+        const ytdSales = mySalesFiltered.filter((s: any) => s.sale_date && (isAfter(safeParseISO(s.sale_date), yearStart) || isSameMonth(safeParseISO(s.sale_date), yearStart)));
         const ytdSalesCount = ytdSales.length;
         const ytdRevenue = ytdSales.reduce((sum: number, sale: any) => sum + Number(sale.total_revenue || 0), 0);
         const ytdTotalArea = ytdSales.reduce((sum: number, sale: any) => sum + Number(sale.area_sqft || 0), 0);
@@ -120,10 +126,10 @@ export function SalesOverview() {
                 .map((item, index) => ({ ...item, rank: index + 1 }));
         };
 
-        const allYearSales = salesRaw.filter((s: any) => isAfter(parseISO(s.sale_date), yearStart) || isSameMonth(parseISO(s.sale_date), yearStart));
+        const allYearSales = salesRaw.filter((s: any) => s.sale_date && (isAfter(safeParseISO(s.sale_date), yearStart) || isSameMonth(safeParseISO(s.sale_date), yearStart)));
         const yearlyLeaderboard = calculateLeaderboard(allYearSales);
 
-        const monthlyLeaderboardSales = salesRaw.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+        const monthlyLeaderboardSales = salesRaw.filter((s: any) => s.sale_date && isSameMonth(safeParseISO(s.sale_date), now));
         const monthlyLeaderboard = calculateLeaderboard(monthlyLeaderboardSales);
 
         return {
