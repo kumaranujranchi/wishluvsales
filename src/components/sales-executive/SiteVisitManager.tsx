@@ -13,7 +13,7 @@ export function SiteVisitManager() {
     const dialog = useDialog();
     
     // Convex Hooks
-    const visitsRaw = useQuery((api as any).site_visits?.listAll);
+    const visitsRaw = useQuery(api.site_visits.listRecent);
     const createVisit = useMutation((api as any).site_visits?.create);
 
     const [showForm, setShowForm] = useState(false);

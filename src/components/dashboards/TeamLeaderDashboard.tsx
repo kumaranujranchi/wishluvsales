@@ -105,7 +105,7 @@ export function TeamLeaderDashboard() {
   const profilesRaw = useQuery(api.profiles.list);
   const salesRaw = useQuery(api.sales.list);
   const targetsRaw = useQuery(api.targets.listAll);
-  const siteVisits = useQuery(api.site_visits.listAll);
+  const siteVisits = useQuery(api.site_visits.listRecent);
   const projectsRaw = useQuery(api.projects.list);
 
   const stats = useMemo(() => {

@@ -78,7 +78,7 @@ export function CRMDashboard() {
     const projects = useQuery(api.projects.list);
     const sales = useQuery(api.sales.list);
     const payments = useQuery(api.payments.listAll);
-    const siteVisits = useQuery(api.site_visits.listAll);
+    const siteVisits = useQuery(api.site_visits.listRecent);
     const segments = useQuery(api.departments.list) || []; 
     const announcementsRaw = useQuery(api.announcements.listAll);
     const activityLogsRaw = useQuery(api.activity_logs.list);
