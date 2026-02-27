@@ -1,9 +1,42 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
-
 import { SignIn } from '@clerk/clerk-react';
+import { useEffect } from 'react';
 
 export function LoginPage() {
+  // Inject global CSS to forcefully hide Clerk's password field
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'clerk-hide-password';
+    style.innerHTML = `
+      /* Hide password field in Clerk - all possible class patterns */
+      .cl-formField__password,
+      [data-localization-key*="password"],
+      .cl-formFieldRow__password,
+      div[class*="password"],
+      label[for*="password"],
+      input[name="password"],
+      input[type="password"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      /* Also hide the row/wrapper containing password */
+      .cl-formFieldRow:has(input[type="password"]),
+      .cl-formField:has(input[type="password"]) {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      const el = document.getElementById('clerk-hide-password');
+      if (el) el.remove();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0A1C37] via-[#0F2744] to-[#1673FF] relative overflow-y-auto overflow-x-hidden">
       {/* Animated Background Elements */}
@@ -77,10 +110,14 @@ export function LoginPage() {
                     footer: 'hidden',
                     footerAction: 'hidden',
                     identityPreviewEditButton: 'text-[#1673FF] hidden',
-                    // Force hide password fields if they ever appear due to browser autofill or Clerk logic
-                    formFieldInput__password: 'hidden',
-                    formFieldLabel__password: 'hidden',
-                    formButtonSecondary: 'hidden',
+                    // Force hide password fields and any alternate sign-in options
+                    formFieldInput__password: '!hidden !h-0 !overflow-hidden !m-0 !p-0',
+                    formFieldLabel__password: '!hidden !h-0 !overflow-hidden !m-0 !p-0',
+                    formFieldRow__password: '!hidden !h-0 !overflow-hidden !m-0 !p-0',
+                    formButtonSecondary: '!hidden',
+                    // Also hide "Use passkey" or similar alternate options
+                    alternativeMethodsBlockButton: '!hidden',
+                    alternativeMethodsEmailCode: '!hidden',
                   },
                 }}
               />
