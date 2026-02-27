@@ -45,9 +45,10 @@ export function TargetsPage() {
 
   // Roles
   const isExecutive = profile?.role === 'sales_executive';
-  const canManage = ['super_admin', 'admin', 'sales_head', 'team_leader', 'director'].includes(profile?.role || '');
+  const isTeamLeader = profile?.role === 'team_leader';
+  const canManage = ['super_admin', 'admin', 'sales_head'].includes(profile?.role || '');
   const canAssign = ['super_admin', 'admin', 'sales_head'].includes(profile?.role || '');
-  const isReadOnly = profile?.role === 'director';
+  const isReadOnly = profile?.role === 'director' || isTeamLeader;
 
   // Filters
   const [viewBy, setViewBy] = useState<'individual' | 'team'>('individual');
@@ -68,16 +69,16 @@ export function TargetsPage() {
 
   useEffect(() => {
     if (profile) {
-      if (isExecutive) {
+      if (isExecutive || isTeamLeader) {
         setSelectedUserId(profile.id);
         setViewBy('individual');
       }
-      // Auto-select manager for Team Leaders
-      if (profile.role === 'team_leader') {
+      // Auto-select manager for Team Leaders in manage section
+      if (isTeamLeader) {
         setManagerFilter(profile.id);
       }
     }
-  }, [profile, isExecutive]);
+  }, [profile, isExecutive, isTeamLeader]);
 
   // Set default selected user if not set (and not executive)
   useEffect(() => {
@@ -204,6 +205,24 @@ export function TargetsPage() {
       return profiles.filter(p => p.role === 'team_leader');
     }
   }, [profiles, viewBy]);
+
+  // Team Leader's team targets for current month (read-only table)
+  const tlTeamTargets = useMemo(() => {
+    if (!isTeamLeader || !profile) return [];
+    const yearNum = parseInt(selectedYear);
+    const teamMemberIds = allProfiles
+      .filter((p: any) => p.reporting_manager_id === profile.id || p._id === profile.id)
+      .map((p: any) => p._id);
+    return allTargets
+      .filter((t: any) => teamMemberIds.includes(t.user_id) && t.period_type === 'monthly' && t.start_date && new Date(t.start_date).getFullYear() === yearNum)
+      .map((t: any) => {
+        const member = allProfiles.find((p: any) => p._id === t.user_id);
+        const memberSales = allSales.filter((s: any) => s.sales_executive_id === t.user_id && s.sale_date && isSameMonth(parseISO(s.sale_date), parseISO(t.start_date)));
+        const achieved = memberSales.reduce((sum: number, s: any) => sum + (Number(s.area_sqft) || 0), 0);
+        return { ...t, memberName: member?.full_name || 'Unknown', achieved, pct: t.target_sqft > 0 ? Math.round((achieved / t.target_sqft) * 100) : 0 };
+      })
+      .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+  }, [isTeamLeader, profile, allTargets, allProfiles, allSales, selectedYear]);
 
   return (
     <div className="space-y-6">
@@ -507,6 +526,60 @@ export function TargetsPage() {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Team Leader: Read-only Team Targets Table */}
+      {isTeamLeader && tlTeamTargets.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TargetIcon size={20} /> My Team's Targets ({selectedYear})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-400 font-medium border-b border-gray-100 dark:border-white/5">
+                  <tr>
+                    <th className="px-4 py-3">Member</th>
+                    <th className="px-4 py-3">Month</th>
+                    <th className="px-4 py-3 text-right">Target (Sq Ft)</th>
+                    <th className="px-4 py-3 text-right">Achieved (Sq Ft)</th>
+                    <th className="px-4 py-3 text-center">Progress</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                  {tlTeamTargets.map((t: any, idx: number) => (
+                    <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-white/5 ${t.user_id === profile?.id ? 'bg-blue-50/30 dark:bg-blue-500/5' : ''}`}>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                        {t.memberName}
+                        {t.user_id === profile?.id && <span className="ml-2 text-xs text-blue-500">(You)</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                        {t.start_date ? format(parseISO(t.start_date), 'MMMM yyyy') : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
+                        {(t.target_sqft || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400">
+                        {t.achieved.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                          t.pct >= 100 ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300' :
+                          t.pct >= 60 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300' :
+                          'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                        }`}>
+                          {t.pct}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       )}

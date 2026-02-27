@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Users', path: '/users', icon: Users, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Departments', path: '/departments', icon: Briefcase, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Projects', path: '/projects', icon: Building, roles: ['super_admin', 'admin', 'director'] },
-  { label: 'Targets', path: '/targets', icon: Target, roles: ['super_admin', 'admin', 'director'] },
+  { label: 'Targets', path: '/targets', icon: Target, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive'] },
 ];
 
 import { useMobile } from '../../hooks/useMobile';
