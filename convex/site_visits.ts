@@ -1,18 +1,14 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+// listAll remains for full access (admin)
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
     try {
-      // Step 1: Fetch raw visits. Limit to 100 to be safe for now, though 
-      // typically we'd paginate. Ordering manually in JS later.
-      const visits = await ctx.db.query("site_visits").collect();
+      const visits = await ctx.db.query("site_visits").order("desc").collect();
       
-      // Step 2: Fetch all profiles to avoid N+1 lookups
       const allProfiles = await ctx.db.query("profiles").collect();
-      
-      // Step 3: Create faster lookups for both Convex IDs and legacy Supabase IDs
       const convexIdToProfile = new Map(allProfiles.map(p => [p._id.toString(), p]));
       const supabaseIdToProfile = new Map();
       for (const p of allProfiles) {
@@ -21,40 +17,57 @@ export const listAll = query({
         }
       }
       
-      const results = visits.map((visit) => {
-        // Find requester
+      return visits.map((visit) => {
         let requesterProfile = null;
         if (visit.requested_by) {
           requesterProfile = convexIdToProfile.get(visit.requested_by) || 
                              supabaseIdToProfile.get(visit.requested_by);
         }
-
-        // Find driver
         let driverProfile = null;
         if (visit.driver_id) {
           driverProfile = convexIdToProfile.get(visit.driver_id) || 
                           supabaseIdToProfile.get(visit.driver_id);
         }
-
         return {
           ...visit,
           requester: requesterProfile ? { full_name: requesterProfile.full_name } : null,
           driver: driverProfile ? { full_name: driverProfile.full_name } : null,
         };
       });
-
-      // Step 4: Sort by date (newest first)
-      return results.sort((a, b) => {
-        const dateA = new Date(a.visit_date || a.created_at || a._creationTime).getTime();
-        const dateB = new Date(b.visit_date || b.created_at || b._creationTime).getTime();
-        return (dateB || 0) - (dateA || 0);
-      });
-
     } catch (error) {
       console.error("Critical error in site_visits:listAll:", error);
       return [];
     }
   },
+});
+
+// NEW: listRecent - safer, limited version
+export const listRecent = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    try {
+      const limit = args.limit ?? 50;
+      const visits = await ctx.db.query("site_visits")
+        .order("desc")
+        .take(limit);
+      
+      // Minimal mapping for performance
+      return await Promise.all(visits.map(async (visit) => {
+        let requester = null;
+        if (visit.requested_by && visit.requested_by.length > 5) {
+          try { requester = await ctx.db.get(visit.requested_by as any); } catch(e) {}
+        }
+        return {
+          ...visit,
+          requester: requester ? { full_name: (requester as any).full_name } : null,
+          driver: null, // Skip driver for minimal query
+        };
+      }));
+    } catch (error) {
+      console.error("Error in listRecent:", error);
+      return [];
+    }
+  }
 });
 
 export const add = mutation({
