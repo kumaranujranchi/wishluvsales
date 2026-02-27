@@ -168,10 +168,39 @@ export function SalesPage() {
   // --- Filtering & Metrics Logic ---
   const filteredData = useMemo(() => {
     return sales.filter((sale: Doc<"sales">) => {
-      // RBAC check
+      // RBAC check: Sales Executive sees only own sales
       if (isSalesExecutive) {
         const profileId = profile?._id || profile?.supabase_id;
         if (sale.sales_executive_id !== profileId) return false;
+      }
+
+      // RBAC check: Team Leader sees only their team's sales
+      if (isTeamLeader) {
+        const tlId = profile?._id;
+        const tlSupabaseId = (profile as any)?.supabase_id;
+        const teamMemberIds = new Set(
+          profilesList
+            .filter((p: any) => 
+              p.reporting_manager_id === tlId || 
+              p.reporting_manager_id === tlSupabaseId ||
+              p._id === tlId  // include TL's own sales too
+            )
+            .map((p: any) => p._id)
+        );
+        // Also match by supabase_id since old sales might use that
+        const teamMemberSupabaseIds = new Set(
+          profilesList
+            .filter((p: any) => 
+              p.reporting_manager_id === tlId || 
+              p.reporting_manager_id === tlSupabaseId ||
+              p._id === tlId
+            )
+            .map((p: any) => p.supabase_id)
+            .filter(Boolean)
+        );
+        if (!teamMemberIds.has(sale.sales_executive_id) && !teamMemberSupabaseIds.has(sale.sales_executive_id)) {
+          return false;
+        }
       }
 
       // Status/Metric Filters
