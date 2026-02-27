@@ -76,7 +76,11 @@ export function LoginPage() {
                     // Footer - hide "Don't have an account" and "Secured by Clerk"
                     footer: 'hidden',
                     footerAction: 'hidden',
-                    identityPreviewEditButton: 'text-[#1673FF]',
+                    identityPreviewEditButton: 'text-[#1673FF] hidden',
+                    // Force hide password fields if they ever appear due to browser autofill or Clerk logic
+                    formFieldInput__password: 'hidden',
+                    formFieldLabel__password: 'hidden',
+                    formButtonSecondary: 'hidden',
                   },
                 }}
               />
