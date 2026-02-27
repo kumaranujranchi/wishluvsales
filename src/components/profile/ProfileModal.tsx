@@ -21,6 +21,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
 
     // Profile Details State
     const [profileData, setProfileData] = useState({
+        fullName: '',
         phone: '',
         dob: '',
         marriageAnniversary: '',
@@ -48,6 +49,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
     useEffect(() => {
         if (profile) {
             setProfileData({
+                fullName: profile.full_name || '',
                 phone: profile.phone || '',
                 dob: profile.dob || '',
                 marriageAnniversary: profile.marriage_anniversary || '',
@@ -80,6 +82,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
         // Reset profile data to current val if closed w/o saving
         if (profile) {
             setProfileData({
+                fullName: profile.full_name || '',
                 phone: profile.phone || '',
                 dob: profile.dob || '',
                 marriageAnniversary: profile.marriage_anniversary || '',
@@ -109,6 +112,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
             
             await updateProfile({
                 id: profile.id as any,
+                full_name: profileData.fullName || undefined,
                 phone: profileData.phone,
                 dob: profileData.dob || undefined,
                 marriage_anniversary: profileData.marriageAnniversary || undefined,
@@ -207,6 +211,13 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
 
                 {activeTab === 'details' && !forceChange ? (
                     <form onSubmit={handleUpdateProfile} className="space-y-4">
+                        <Input
+                            label="Full Name (Display Name)"
+                            value={profileData.fullName}
+                            onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+                            placeholder="Your full name"
+                            rightIcon={<User size={18} />}
+                        />
                         <Input
                             label="Phone Number"
                             value={profileData.phone}
