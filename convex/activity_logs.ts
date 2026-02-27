@@ -14,9 +14,16 @@ export const log = mutation({
     await ctx.db.insert("activity_logs", args);
   },
 });
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("activity_logs").order("desc").take(100);
+    try {
+      return await ctx.db.query("activity_logs").order("desc").take(100);
+    } catch (error) {
+      console.error("Error in activity_logs:list:", error);
+      return [];
+    }
   },
 });
+

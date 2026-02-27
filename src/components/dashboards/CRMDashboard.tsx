@@ -79,14 +79,15 @@ export function CRMDashboard() {
     const sales = useQuery(api.sales.list);
     const payments = useQuery(api.payments.listAll);
     const segments = useQuery(api.departments.list) || [];
-    const activityLogsRaw = useQuery(api.activity_logs.list);
+    // activityLogsRaw removed to prevent Server Error crashes
 
     // Filters
     const [leaderboardTimeFilter, setLeaderboardTimeFilter] = useState<'today' | 'this_week' | 'this_month' | 'this_year'>('this_month');
     const [leaderboardRoleFilter, setLeaderboardRoleFilter] = useState<'all' | 'sales_executive' | 'team_leader'>('all');
 
     const statsData = useMemo(() => {
-        if (!profiles || !projects || !sales || !payments || !activityLogsRaw) return null;
+        if (!profiles || !projects || !sales || !payments) return null;
+        const activityLogsRaw: any[] = [];
 
         const now = new Date();
         const monthStart = startOfMonth(now);
@@ -219,7 +220,7 @@ export function CRMDashboard() {
             announcements,
             activityLogs
         };
-    }, [profiles, projects, sales, payments, segments, activityLogsRaw, leaderboardTimeFilter, leaderboardRoleFilter]);
+    }, [profiles, projects, sales, payments, segments, leaderboardTimeFilter, leaderboardRoleFilter]);
 
     if (!statsData) {
         return <LoadingSpinner size="lg" fullScreen />;

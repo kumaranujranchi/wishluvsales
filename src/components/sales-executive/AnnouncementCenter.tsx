@@ -1,17 +1,16 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { Card, CardContent } from '../ui/Card';
 import { Announcement } from '../../types/database';
 import { Search, Bookmark } from 'lucide-react';
 import { Input } from '../ui/Input';
 
 export function AnnouncementCenter() {
-    const rawAnnouncements = useQuery(api.announcements.listAll);
+    // Announcements feature temporarily disabled
+    const rawAnnouncements: any[] = [];
     const [filter, setFilter] = useState('');
 
     const announcements = useMemo(() => {
-        return (rawAnnouncements || [])
+        return rawAnnouncements
             .filter((ann: any) => ann.is_published)
             .map((ann: any) => ({
                 ...ann,
@@ -19,7 +18,7 @@ export function AnnouncementCenter() {
             })) as Announcement[];
     }, [rawAnnouncements]);
 
-    const loading = rawAnnouncements === undefined;
+    const loading = false;
 
     const filteredList = announcements.filter(a =>
         a.title.toLowerCase().includes(filter.toLowerCase()) ||
