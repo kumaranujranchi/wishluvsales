@@ -129,10 +129,9 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
             const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
             if (!result.ok) throw new Error('Upload failed');
             const { storageId } = await result.json();
-            const publicUrl = window.location.origin.includes('localhost')
-                ? `${convex.convexSiteUrl}/getImage?storageId=${storageId}`
-                : `https://strong-tapir-797.convex.cloud/getImage?storageId=${storageId}`;
-            setTempImageUrl(String(publicUrl));
+            const publicUrl = convex.getStorageUrl(storageId as any);
+            if (!publicUrl) throw new Error('Failed to get storage URL');
+            setTempImageUrl(publicUrl);
             setImageError(false);
         } catch (err: any) {
             console.error('Image upload error:', err);

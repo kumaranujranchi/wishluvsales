@@ -131,10 +131,11 @@ export function UsersPage() {
       const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
       if (!result.ok) throw new Error('Upload failed');
       const { storageId } = await result.json();
-      // 3. Get the public URL
-      const publicUrl = (convex as any).getStorageUrl ? await (convex as any).getStorageUrl(storageId) : `${convex.convexSiteUrl}/getImage?storageId=${storageId}`;
+      // 3. Get the public URL via Convex client (returns string, not Promise)
+      const publicUrl = convex.getStorageUrl(storageId as any);
+      if (!publicUrl) throw new Error('Failed to get storage URL');
       // 4. Save to form data + show preview
-      setFormData(prev => ({ ...prev, imageUrl: String(publicUrl) }));
+      setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
       setImagePreview(URL.createObjectURL(file));
     } catch (err: any) {
       console.error('Image upload error:', err);
