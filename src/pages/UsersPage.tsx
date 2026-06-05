@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useQuery, useMutation, useConvex } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -26,7 +26,6 @@ export function UsersPage() {
   const allUsers = useQuery(api.profiles.list);
   const departments = useQuery(api.departments.list) || [];
   
-  const convex = useConvex();
   const addProfile = useMutation(api.profiles.add);
   const updateProfile = useMutation(api.profiles.update);
   const removeProfile = useMutation(api.profiles.remove);
@@ -131,9 +130,8 @@ export function UsersPage() {
       const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
       if (!result.ok) throw new Error('Upload failed');
       const { storageId } = await result.json();
-      // 3. Get the public URL via Convex client (returns string, not Promise)
-      const publicUrl = convex.getStorageUrl(storageId as any);
-      if (!publicUrl) throw new Error('Failed to get storage URL');
+      // 3. Build the public URL — Convex serves files at /api/storage/<storageId>
+      const publicUrl = `${import.meta.env.VITE_CONVEX_URL}/api/storage/${storageId}`;
       // 4. Save to form data + show preview
       setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
       setImagePreview(URL.createObjectURL(file));

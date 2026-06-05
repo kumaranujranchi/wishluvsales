@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { useMutation, useConvex } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Modal, ModalFooter } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -17,7 +17,6 @@ interface ProfileModalProps {
 export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileModalProps) {
     const { profile } = useAuth();
     const dialog = useDialog();
-    const convex = useConvex();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'security'>('details');
 
@@ -129,8 +128,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
             const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
             if (!result.ok) throw new Error('Upload failed');
             const { storageId } = await result.json();
-            const publicUrl = convex.getStorageUrl(storageId as any);
-            if (!publicUrl) throw new Error('Failed to get storage URL');
+            const publicUrl = `${import.meta.env.VITE_CONVEX_URL}/api/storage/${storageId}`;
             setTempImageUrl(publicUrl);
             setImageError(false);
         } catch (err: any) {
