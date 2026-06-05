@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveSale } from '../../utils/salesFilters';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import {
@@ -59,6 +60,7 @@ export function MobileDashboard() {
         }
 
         (rawSales || []).forEach((sale: any) => {
+            if (!isActiveSale(sale)) return;
             if (sale.sale_date < yearStart) return;
             
             ySales++;

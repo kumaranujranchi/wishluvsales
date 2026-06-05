@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveSale } from '../../utils/salesFilters';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
@@ -42,7 +43,7 @@ export function ReceptionistDashboard() {
         const yearStart = startOfYear(now);
 
         // Current Month Stats
-        const currentMonthSales = salesRaw.filter((s: any) => isSameMonth(parseISO(s.sale_date), now));
+        const currentMonthSales = salesRaw.filter((s: any) => isSameMonth(parseISO(s.sale_date), now) && isActiveSale(s));
         const revenue = currentMonthSales.reduce((sum: number, sale: any) => sum + Number(sale.total_revenue || 0), 0);
 
         // Target (Global/Aggregate for all users if possible, or just the current user's role context)

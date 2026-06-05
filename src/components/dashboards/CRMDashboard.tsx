@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveSale } from '../../utils/salesFilters';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveSale } from '../../utils/salesFilters';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
@@ -56,8 +57,8 @@ export function SalesOverview() {
 
         // Filter sales based on role
         const mySalesFiltered = salesRaw.filter((s: any) => {
-            if (isReceptionist) return true;
-            return s.sales_executive_id === myProfileId;
+            if (isReceptionist) return isActiveSale(s);
+            return s.sales_executive_id === myProfileId && isActiveSale(s);
         });
 
         // Current Month Sales & Revenue

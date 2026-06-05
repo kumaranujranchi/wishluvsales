@@ -3,6 +3,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveSale } from '../../utils/salesFilters';
 import { KPICard } from '../ui/KPICard';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { SafeImage } from '../ui/SafeImage';

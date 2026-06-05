@@ -24,7 +24,7 @@ export function TargetAchievement() {
 
     const sales = useMemo(() => {
         if (!profile) return [];
-        return rawSales.filter((s: any) => s.sales_executive_id === profile.id);
+        return rawSales.filter((s: any) => s.sales_executive_id === profile.id && isActiveSale(s));
     }, [rawSales, profile]);
 
     const chartData = useMemo(() => {
