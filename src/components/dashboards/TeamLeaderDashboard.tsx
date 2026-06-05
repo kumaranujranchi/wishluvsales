@@ -5,6 +5,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { SafeImage } from '../ui/SafeImage';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { CelebrationCards } from '../sales-executive/CelebrationCards';
 import {
@@ -74,13 +75,7 @@ const LeaderboardItem = ({ rank, name, area, image_url, role }: { rank: number, 
     <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors group">
       <div className="flex items-center gap-4">
         <div className={`relative w-12 h-12 rounded-full border-2 p-0.5 ${getBorderColor(rank)}`}>
-          {image_url ? (
-            <img src={image_url} alt={name} className="w-full h-full rounded-full object-cover" />
-          ) : (
-            <div className="w-full h-full rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold text-slate-400 dark:text-gray-400">
-              {name.charAt(0)}
-            </div>
-          )}
+          <SafeImage src={image_url} name={name} className="w-full h-full rounded-full object-cover text-sm" />
           <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-1 ring-white dark:ring-surface-highlight ${getRankBg(rank)}`}>
             {rank}
           </div>
@@ -269,13 +264,7 @@ export function TeamLeaderDashboard() {
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 text-white">
           <div className="flex items-center gap-5">
             <div className="p-1 bg-white/20 rounded-2xl backdrop-blur-sm">
-              {profile?.image_url ? (
-                <img src={profile.image_url} alt={profile.full_name || 'User'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50" />
-              ) : (
-                <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl font-bold border-2 border-white/50">
-                  {profile?.full_name?.charAt(0)}
-                </div>
-              )}
+              <SafeImage src={profile?.image_url} name={profile?.full_name || '?'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50 text-2xl" alt={profile?.full_name || 'User'} />
             </div>
             <div className="space-y-1">
               <h1 className="text-xl md:text-3xl font-bold tracking-tight">

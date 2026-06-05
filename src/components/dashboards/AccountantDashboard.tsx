@@ -1,5 +1,6 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { UpcomingEvents } from './widgets/UpcomingEvents';
+import { SafeImage } from '../ui/SafeImage';
 
 export function AccountantDashboard() {
     const { profile } = useAuth();
@@ -13,13 +14,7 @@ export function AccountantDashboard() {
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 text-white">
                     <div className="flex items-center gap-5">
                         <div className="p-1 bg-white/20 rounded-2xl backdrop-blur-sm">
-                            {profile?.image_url ? (
-                                <img src={profile.image_url} alt={profile.full_name || 'User'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50" />
-                            ) : (
-                                <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl font-bold border-2 border-white/50">
-                                    {profile?.full_name?.charAt(0)}
-                                </div>
-                            )}
+                            <SafeImage src={profile?.image_url} name={profile?.full_name || '?'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50 text-2xl" alt={profile?.full_name || 'User'} />
                         </div>
                         <div className="space-y-1">
                             <h1 className="text-xl md:text-3xl font-bold tracking-tight">

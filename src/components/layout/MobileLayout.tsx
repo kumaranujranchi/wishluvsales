@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileModal } from '../profile/ProfileModal';
+import { SafeImage } from '../ui/SafeImage';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import {
     LayoutDashboard,
@@ -56,12 +57,13 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
                 <div className="flex items-center gap-3">
                     <ThemeToggle />
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm ring-2 ring-white dark:ring-white/10 shadow-sm cursor-pointer" onClick={() => setIsProfileOpen(true)}>
-                        {profile?.image_url ? (
-                            <img src={profile.image_url} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            profile?.full_name?.charAt(0)
-                        )}
+                    <div className="cursor-pointer" onClick={() => setIsProfileOpen(true)}>
+                        <SafeImage
+                            src={profile?.image_url}
+                            name={profile?.full_name || '?'}
+                            className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shadow-sm"
+                            alt={profile?.full_name}
+                        />
                     </div>
                 </div>
             </div>

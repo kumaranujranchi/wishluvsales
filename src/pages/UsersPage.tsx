@@ -12,6 +12,7 @@ import { Select } from '../components/ui/Select';
 import { Modal, ModalFooter } from '../components/ui/Modal';
 import { Users, UserPlus, Trash2, Pencil, Ban, CheckCircle } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
+import { SafeImage } from '../components/ui/SafeImage';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Id, Doc } from '../../convex/_generated/dataModel';
 
@@ -315,7 +316,7 @@ export function UsersPage() {
                     <TableCell className="font-mono text-xs">{user.employee_id}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        {user.image_url && <img src={user.image_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
+                        <SafeImage src={user.image_url} name={user.full_name} className="w-6 h-6 rounded-full object-cover text-[10px]" />
                         <span className={!user.is_active ? 'text-gray-500' : ''}>{user.full_name}</span>
                       </div>
                     </TableCell>

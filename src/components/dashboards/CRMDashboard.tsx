@@ -5,6 +5,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { KPICard } from '../ui/KPICard';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { SafeImage } from '../ui/SafeImage';
 import { Button } from '../ui/Button';
 import {
     Users,
@@ -237,13 +238,7 @@ export function CRMDashboard() {
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 text-white">
                     <div className="flex items-center gap-5">
                         <div className="p-1 bg-white/20 rounded-2xl backdrop-blur-sm">
-                            {profile?.image_url ? (
-                                <img src={profile.image_url} alt={profile.full_name || 'User'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50" />
-                            ) : (
-                                <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center text-2xl font-bold border-2 border-white/50">
-                                    {profile?.full_name?.charAt(0)}
-                                </div>
-                            )}
+                            <SafeImage src={profile?.image_url} name={profile?.full_name || '?'} className="w-16 h-16 rounded-xl object-cover border-2 border-white/50 text-2xl" alt={profile?.full_name || 'User'} />
                         </div>
                         <div className="space-y-1">
                             <h1 className="text-xl md:text-3xl font-bold tracking-tight">
@@ -511,13 +506,7 @@ export function CRMDashboard() {
                          `}>
                                                     #{index + 1}
                                                 </div>
-                                                {user.image_url ? (
-                                                    <img src={user.image_url} alt={user.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-50 dark:ring-white/10 group-hover:ring-white dark:group-hover:ring-white/20 shadow-sm transition-all" />
-                                                ) : (
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-slate-100 dark:from-indigo-500/20 dark:to-slate-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold ring-2 ring-slate-50 dark:ring-white/10 group-hover:ring-white dark:group-hover:ring-white/20 shadow-sm transition-all">
-                                                        {user.name.charAt(0)}
-                                                    </div>
-                                                )}
+                                                <SafeImage src={user.image_url} name={user.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-50 dark:ring-white/10 group-hover:ring-white dark:group-hover:ring-white/20 shadow-sm transition-all text-sm" />
                                             </div>
 
                                             <div>

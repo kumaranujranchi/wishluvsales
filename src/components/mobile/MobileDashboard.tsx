@@ -19,6 +19,7 @@ import {
     XAxis
 } from 'recharts';
 import { formatCurrency } from '../../utils/format';
+import { SafeImage } from '../ui/SafeImage';
 
 export function MobileDashboard() {
     const { profile } = useAuth();
@@ -250,13 +251,7 @@ export function MobileDashboard() {
                             <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold ${i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300' : 'bg-orange-50 dark:bg-orange-500/20 text-orange-600'}`}>
                                 {i + 1}
                             </span>
-                            {user.image ? (
-                                <img src={user.image} className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-gray-400 font-bold text-xs">
-                                    {user.name.charAt(0)}
-                                </div>
-                            )}
+                            <SafeImage src={user.image} name={user.name} className="w-10 h-10 rounded-full object-cover text-xs" />
                             <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm text-slate-900 dark:text-white truncate">{user.name}</p>
                                 <p className="text-xs text-slate-500 dark:text-gray-400">{user.sales} Sales</p>

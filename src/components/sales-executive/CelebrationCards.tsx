@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { SafeImage } from '../ui/SafeImage';
 import { Gift, Heart, Briefcase } from 'lucide-react'; // Icons
 import { format, parseISO, getYear, setYear, differenceInDays, isValid, addYears, startOfDay } from 'date-fns';
 import { Profile } from '../../types/database';
@@ -115,13 +116,11 @@ export function CelebrationCards() {
             ) : (
                 events.map(event => (
                     <div key={event.id} className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-2 rounded-xl">
-                        {event.profileImage ? (
-                            <img src={event.profileImage} alt={event.profileName} className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-surface-dark" />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full bg-white dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-gray-400 font-bold border border-slate-100 dark:border-white/5 shadow-sm">
-                                {event.profileName.charAt(0)}
-                            </div>
-                        )}
+                        <SafeImage
+                            src={event.profileImage}
+                            name={event.profileName}
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-surface-dark text-xs"
+                        />
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{event.profileName}</p>
                             <p className="text-xs text-slate-500 dark:text-gray-400">{event.details || format(event.date, 'MMMM d, yyyy')}</p>

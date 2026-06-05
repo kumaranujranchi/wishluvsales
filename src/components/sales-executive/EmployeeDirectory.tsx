@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Card, CardContent } from '../ui/Card';
+import { SafeImage } from '../ui/SafeImage';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Search, Download, User } from 'lucide-react';
@@ -66,19 +67,13 @@ export function EmployeeDirectory() {
                 ) : filteredEmployees.map((emp) => (
                     <Card key={emp.id} className="hover:shadow-md transition-shadow overflow-hidden dark:bg-surface-dark dark:border-white/10">
                         <CardContent className="p-4 md:p-6 flex items-center gap-4">
-                            <div className="flex-shrink-0 h-16 w-16 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-white dark:border-white/10 shadow-sm">
-                                {emp.image_url ? (
-                                    <img
-                                        src={emp.image_url}
-                                        alt={emp.full_name}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                        }}
-                                    />
-                                ) : null}
-                                <User size={32} className={`text-gray-400 dark:text-gray-500 ${emp.image_url ? 'hidden' : ''}`} />
+                            <div className="flex-shrink-0">
+                                <SafeImage
+                                    src={emp.image_url}
+                                    name={emp.full_name}
+                                    className="h-16 w-16 rounded-full object-cover border-2 border-white dark:border-white/10 shadow-sm text-lg"
+                                    alt={emp.full_name}
+                                />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-bold text-slate-800 dark:text-white truncate" title={emp.full_name}>{emp.full_name}</h3>

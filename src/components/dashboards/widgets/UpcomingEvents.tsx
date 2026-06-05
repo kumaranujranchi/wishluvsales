@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../ui/Card';
+import { SafeImage } from '../../ui/SafeImage';
 import { Calendar, Gift, Heart, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
 import {
     format, addYears, differenceInDays,
@@ -143,13 +144,11 @@ export function UpcomingEvents() {
                         <div key={event.id} className="flex items-center gap-3 group p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-default">
                             {/* Avatar */}
                             <div className="relative">
-                                {event.profileImage ? (
-                                    <img src={event.profileImage} alt={event.profileName} className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-surface-dark shadow-sm" />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center ring-2 ring-white dark:ring-surface-dark shadow-sm">
-                                        <span className="text-xs font-bold text-slate-500 dark:text-gray-300">{event.profileName.charAt(0)}</span>
-                                    </div>
-                                )}
+                                <SafeImage
+                                    src={event.profileImage}
+                                    name={event.profileName}
+                                    className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-surface-dark shadow-sm text-xs"
+                                />
                                 {/* Event Type Icon Badge */}
                                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-surface-dark shadow-sm ${event.type === 'birthday' ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/50 dark:text-pink-400' :
                                     event.type === 'anniversary' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400' :
