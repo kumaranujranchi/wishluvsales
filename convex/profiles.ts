@@ -73,3 +73,11 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+/** Generates a one-time upload URL for Convex file storage (profile images) */
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useState, useRef } from 'react';
+import { useQuery, useMutation, useConvex } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Modal, ModalFooter } from '../components/ui/Modal';
-import { Users, UserPlus, Trash2, Pencil, Ban, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, Trash2, Pencil, Ban, CheckCircle, Upload } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
 import { SafeImage } from '../components/ui/SafeImage';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -26,14 +26,19 @@ export function UsersPage() {
   const allUsers = useQuery(api.profiles.list);
   const departments = useQuery(api.departments.list) || [];
   
+  const convex = useConvex();
   const addProfile = useMutation(api.profiles.add);
   const updateProfile = useMutation(api.profiles.update);
   const removeProfile = useMutation(api.profiles.remove);
+  const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const logActivity = useMutation(api.activity_logs.log);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingUserId, setEditingUserId] = useState<Id<"profiles"> | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isReadOnly = profile?.role === 'director';
 
@@ -99,7 +104,51 @@ export function UsersPage() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setImagePreview(null);
     resetForm();
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      await dialog.alert('Only JPEG, PNG, WebP, or GIF images are allowed.', { variant: 'danger', title: 'Invalid File' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      await dialog.alert('Image must be under 5 MB.', { variant: 'danger', title: 'File Too Large' });
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      // 1. Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl({});
+      // 2. Upload the file
+      const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
+      if (!result.ok) throw new Error('Upload failed');
+      const { storageId } = await result.json();
+      // 3. Get the public URL
+      const publicUrl = (convex as any).getStorageUrl ? await (convex as any).getStorageUrl(storageId) : `${convex.convexSiteUrl}/getImage?storageId=${storageId}`;
+      // 4. Save to form data + show preview
+      setFormData(prev => ({ ...prev, imageUrl: String(publicUrl) }));
+      setImagePreview(URL.createObjectURL(file));
+    } catch (err: any) {
+      console.error('Image upload error:', err);
+      await dialog.alert(err.message || 'Failed to upload image.', { variant: 'danger', title: 'Upload Error' });
+    } finally {
+      setImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: '' }));
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleEditUser = (user: Doc<"profiles">) => {
@@ -480,13 +529,47 @@ export function UsersPage() {
               onChange={handleInputChange}
               options={(allUsers || []).filter(u => u._id !== editingUserId).map(u => ({ value: u._id, label: u.full_name }))}
             />
-            <Input
-              label="Profile Image URL"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleInputChange}
-              placeholder="https://..."
-            />
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile Image</label>
+              <div className="flex items-center gap-3">
+                {/* Preview */}
+                <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center overflow-hidden border border-gray-200 dark:border-white/10 shrink-0">
+                  {imagePreview || formData.imageUrl ? (
+                    <SafeImage src={imagePreview || formData.imageUrl} name={formData.fullName || '?'} className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload size={20} className="text-gray-400" />
+                  )}
+                </div>
+                {/* Upload button */}
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="profile-image-upload"
+                  />
+                  <label
+                    htmlFor="profile-image-upload"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                  >
+                    <Upload size={16} />
+                    {imageUploading ? 'Uploading...' : 'Upload Image'}
+                  </label>
+                  {(imagePreview || formData.imageUrl) && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="ml-2 text-xs text-red-500 hover:text-red-700 underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP, GIF — max 5 MB</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {error && (

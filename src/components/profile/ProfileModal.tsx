@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { useMutation } from 'convex/react';
+import { useMutation, useConvex } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Modal, ModalFooter } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Eye, EyeOff, Shield, Lock, Check, User, Phone } from 'lucide-react';
+import { Eye, EyeOff, Shield, Lock, Check, User, Phone, Upload } from 'lucide-react';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -17,6 +17,8 @@ interface ProfileModalProps {
 export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileModalProps) {
     const { profile } = useAuth();
     const dialog = useDialog();
+    const convex = useConvex();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'security'>('details');
 
     // Profile Details State
@@ -36,6 +38,8 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [imageError, setImageError] = useState(false);
+    const [imageUploading, setImageUploading] = useState(false);
+    const [tempImageUrl, setTempImageUrl] = useState<string | null>(null);
 
     // Password Requirements
     const [requirements, setRequirements] = useState({
@@ -79,6 +83,9 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
         setConfirmPassword('');
         setError('');
         setImageError(false);
+        setImageUploading(false);
+        setTempImageUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         // Reset profile data to current val if closed w/o saving
         if (profile) {
             setProfileData({
@@ -102,7 +109,47 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
         setImageError(true);
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            await dialog.alert('Only JPEG, PNG, WebP, or GIF images are allowed.', { variant: 'danger', title: 'Invalid File' });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            await dialog.alert('Image must be under 5 MB.', { variant: 'danger', title: 'File Too Large' });
+            return;
+        }
+
+        setImageUploading(true);
+        try {
+            const uploadUrl = await generateUploadUrl({});
+            const result = await fetch(uploadUrl, { method: 'POST', body: file, headers: { 'Content-Type': file.type } });
+            if (!result.ok) throw new Error('Upload failed');
+            const { storageId } = await result.json();
+            const publicUrl = window.location.origin.includes('localhost')
+                ? `${convex.convexSiteUrl}/getImage?storageId=${storageId}`
+                : `https://strong-tapir-797.convex.cloud/getImage?storageId=${storageId}`;
+            setTempImageUrl(String(publicUrl));
+            setImageError(false);
+        } catch (err: any) {
+            console.error('Image upload error:', err);
+            await dialog.alert(err.message || 'Failed to upload image.', { variant: 'danger', title: 'Upload Error' });
+        } finally {
+            setImageUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const removeTempImage = () => {
+        setTempImageUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const updateProfile = useMutation(api.profiles.update);
+    const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -117,6 +164,7 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
                 dob: profileData.dob || undefined,
                 marriage_anniversary: profileData.marriageAnniversary || undefined,
                 joining_date: profileData.joiningDate || undefined,
+                image_url: tempImageUrl !== null ? tempImageUrl : undefined,
                 updated_at: new Date().toISOString()
             });
 
@@ -159,9 +207,9 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
             <div className="space-y-6">
                 {/* User Info Section */}
                 <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    {profile?.image_url && !imageError ? (
+                    {(tempImageUrl || (profile?.image_url && !imageError)) ? (
                         <img
-                            src={profile.image_url}
+                            src={tempImageUrl || profile.image_url}
                             alt={profile.full_name}
                             onError={handleImageError}
                             className="w-16 h-16 rounded-full border-2 border-[#1673FF] object-cover shrink-0"
@@ -211,6 +259,37 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
 
                 {activeTab === 'details' && !forceChange ? (
                     <form onSubmit={handleUpdateProfile} className="space-y-4">
+                        {/* Image Upload */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">Profile Photo</label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
+                                    id="modal-image-upload"
+                                />
+                                <label
+                                    htmlFor="modal-image-upload"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                                >
+                                    <Upload size={16} />
+                                    {imageUploading ? 'Uploading...' : tempImageUrl ? 'Change Photo' : 'Upload Photo'}
+                                </label>
+                                {tempImageUrl && (
+                                    <button type="button" onClick={removeTempImage} className="text-xs text-red-500 hover:text-red-700 underline">
+                                        Remove new photo
+                                    </button>
+                                )}
+                                {tempImageUrl && (
+                                    <span className="text-xs text-green-600 font-medium">✓ New photo ready — save to apply</span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-400">JPEG, PNG, WebP, GIF — max 5 MB</p>
+                        </div>
+
                         <Input
                             label="Full Name (Display Name)"
                             value={profileData.fullName}
