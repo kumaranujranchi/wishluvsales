@@ -474,6 +474,7 @@ export function SalesPage() {
                     </th>
                     <th className="px-4 py-3">Customer Name</th>
                     <th className="px-4 py-3">Project & Unit</th>
+                    <th className="px-4 py-3">Sales Exec</th>
                     <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total_revenue')}>
                       <div className="flex items-center justify-end gap-1">Total Revenue {sortConfig.column === 'total_revenue' && (sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}</div>
                     </th>
@@ -498,6 +499,11 @@ export function SalesPage() {
                             {projectsList.find(p => p._id === sale.project_id || p.supabase_id === sale.project_id)?.name || 'Unknown Project'}
                         </div>
                         <div className="text-xs text-gray-500">Unit: {sale.unit_number || 'N/A'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {profilesList.find(p => p._id === sale.sales_executive_id || p.supabase_id === sale.sales_executive_id)?.full_name || <span className="text-gray-400 text-xs">N/A</span>}
+                        </span>
                       </td>
                       <td className={`px-4 py-3 text-right font-bold ${(sale.metadata as any)?.booking_status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[#2BA67A]'}`}>
                         {formatCurrency(sale.total_revenue || 0)}
