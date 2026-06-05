@@ -32,7 +32,8 @@ export const add = mutation({
     created_at: v.string(),
     updated_at: v.string(),
   },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("incentives", args);
+  handler: async (_ctx, _args) => {
+    // Temporarily disabled — feature being rebuilt
+    return null;
   },
 });
