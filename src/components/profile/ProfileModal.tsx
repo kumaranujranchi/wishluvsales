@@ -223,38 +223,8 @@ export function ProfileModal({ isOpen, onClose, forceChange = false }: ProfileMo
                     </div>
                 </div>
 
-                {forceChange && (
-                    <div className="p-3 bg-amber-50 text-amber-800 text-sm rounded-md border border-amber-200">
-                        For security reasons, you must change your password before proceeding.
-                    </div>
-                )}
-
-                {!forceChange && (
-                    <div className="flex border-b border-gray-200">
-                        <button
-                            onClick={() => setActiveTab('details')}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details'
-                                ? 'border-[#1673FF] text-[#1673FF]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            <User size={16} />
-                            Profile Details
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('security')}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'security'
-                                ? 'border-[#1673FF] text-[#1673FF]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            <Lock size={16} />
-                            Security
-                        </button>
-                    </div>
-                )}
-
-                {activeTab === 'details' && !forceChange ? (
+                 {/* Security and Password changes are disabled as authentication is passwordless */}
+                {activeTab === 'details' ? (
                     <form onSubmit={handleUpdateProfile} className="space-y-4">
                         {/* Image Upload */}
                         <div className="space-y-2">

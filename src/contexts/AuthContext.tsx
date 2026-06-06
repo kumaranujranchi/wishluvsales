@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const profile = useMemo<Profile | null>(() => {
     if (!profileRaw) return null;
     if (profileRaw.is_active === false) return null;
-    return { ...profileRaw, id: profileRaw._id } as Profile;
+    return { ...profileRaw, id: profileRaw._id, force_password_change: false } as Profile;
   }, [profileRaw]);
 
   console.log('Auth State:', { 

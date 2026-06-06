@@ -216,7 +216,7 @@ export function UsersPage() {
           marriage_anniversary: formData.marriageAnniversary || undefined,
           joining_date: formData.joiningDate || undefined,
           is_active: true,
-          force_password_change: true,
+          force_password_change: false,
           created_at: now,
           updated_at: now
         });
