@@ -38,8 +38,18 @@ export function TargetsPage() {
   }, [allSales]);
 
   const profiles = useMemo(() => {
-    return allProfiles.filter(p => p.role === 'sales_executive' || p.role === 'team_leader').map(p => ({ ...p, id: p._id }));
-  }, [allProfiles]);
+    const raw = allProfiles.filter(p => p.role === 'sales_executive' || p.role === 'team_leader').map(p => ({ ...p, id: p._id }));
+    
+    if (profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'director' || profile?.role === 'sales_head') {
+      return raw;
+    }
+    
+    if (profile?.role === 'team_leader') {
+      return raw.filter(p => p.id === profile.id || p.reporting_manager_id === profile.id);
+    }
+    
+    return raw.filter(p => p.id === profile?.id);
+  }, [allProfiles, profile]);
 
   const removeTarget = useMutation(api.targets.remove);
 
