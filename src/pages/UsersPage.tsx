@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -31,6 +31,7 @@ export function UsersPage() {
   const removeProfile = useMutation(api.profiles.remove);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const logActivity = useMutation(api.activity_logs.log);
+  const createClerkUser = useAction(api.clerk.createUser);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -220,15 +221,45 @@ export function UsersPage() {
           updated_at: now
         });
 
+        // Auto-register the user in Clerk
+        try {
+          const clerkRes = await createClerkUser({
+            email: formData.email,
+            fullName: formData.fullName,
+          });
+
+          if (clerkRes && !clerkRes.success) {
+            console.error("Clerk registration warning:", clerkRes.reason);
+            if (clerkRes.reason === "CLERK_SECRET_KEY_MISSING") {
+              await dialog.alert('User added to local database. Note: Auto-registration in Clerk was skipped because CLERK_SECRET_KEY is not configured in the Convex Dashboard. Please add this user email manually in your Clerk Dashboard.', {
+                variant: 'warning',
+                title: 'Clerk Sync Warning'
+              });
+            } else {
+              await dialog.alert(`User added to local database, but Clerk registration failed: ${clerkRes.reason}. Please make sure this user exists in your Clerk Dashboard.`, {
+                variant: 'warning',
+                title: 'Clerk Sync Warning'
+              });
+            }
+          } else {
+            await dialog.alert('User added successfully! Account automatically registered in Clerk. They can now log in using OTP.', {
+              variant: 'success',
+              title: 'Success'
+            });
+          }
+        } catch (clerkErr: any) {
+          console.error("Clerk action error:", clerkErr);
+          await dialog.alert('User added to local database, but Clerk registration failed. Please add them manually in Clerk.', {
+            variant: 'warning',
+            title: 'Clerk Sync Error'
+          });
+        }
+
         await logActivity({
             user_id: profile?.id,
             action: 'USER_CREATED',
             details: `New user created: ${formData.fullName} (${formData.role})`,
             created_at: now
-        });
-        await dialog.alert('User added successfully! They can now sign in using Clerk with their email.', { 
-            variant: 'success', 
-            title: 'Success' 
         });
       }
 

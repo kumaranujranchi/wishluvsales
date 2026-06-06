@@ -10,6 +10,7 @@
 
 import type * as activity_logs from "../activity_logs.js";
 import type * as announcements from "../announcements.js";
+import type * as clerk from "../clerk.js";
 import type * as customers from "../customers.js";
 import type * as departments from "../departments.js";
 import type * as incentives from "../incentives.js";
@@ -32,6 +33,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   activity_logs: typeof activity_logs;
   announcements: typeof announcements;
+  clerk: typeof clerk;
   customers: typeof customers;
   departments: typeof departments;
   incentives: typeof incentives;
