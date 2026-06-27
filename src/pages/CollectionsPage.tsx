@@ -35,7 +35,8 @@ import {
   format,
   parseISO,
   startOfMonth,
-  endOfMonth
+  endOfMonth,
+  isAfter
 } from 'date-fns';
 import { useUser } from '@clerk/clerk-react';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -275,11 +276,20 @@ export function CollectionsPage() {
       .filter(item => isSameMonth(parseISO(item.payment.payment_date), now))
       .reduce((sum, item) => sum + (item.payment.amount || 0), 0);
 
+    const currentYearStart = startOfYear(now);
+    const thisYearCollections = filteredData
+      .filter(item => {
+        const pDate = parseISO(item.payment.payment_date);
+        return isAfter(pDate, currentYearStart) || item.payment.payment_date === format(currentYearStart, 'yyyy-MM-dd');
+      })
+      .reduce((sum, item) => sum + (item.payment.amount || 0), 0);
+
     return {
       totalCollections,
       count,
       avgAmount,
-      thisMonthCollections
+      thisMonthCollections,
+      thisYearCollections
     };
   }, [filteredData]);
 
@@ -358,7 +368,7 @@ export function CollectionsPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <KPICard
           title="Total Collections"
           value={formatCurrency(metrics.totalCollections, true)}
@@ -376,6 +386,15 @@ export function CollectionsPage() {
           formatter={(val) => val as string}
           iconColor="text-indigo-600"
           iconBgColor="bg-indigo-100"
+        />
+        <KPICard
+          title="This Year"
+          value={formatCurrency(metrics.thisYearCollections, true)}
+          icon={Wallet}
+          subtitle="YTD Collections"
+          formatter={(val) => val as string}
+          iconColor="text-teal-600"
+          iconBgColor="bg-teal-100"
         />
         <KPICard
           title="Payments Count"
