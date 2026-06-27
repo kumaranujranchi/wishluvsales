@@ -13,6 +13,7 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { TargetsPage } from './pages/TargetsPage';
 import { SalesPage } from './pages/SalesPage';
 import { CollectionsPage } from './pages/CollectionsPage';
+import { LeadsPage } from './pages/LeadsPage';
 import { MyPerformancePage } from './pages/MyPerformancePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 
@@ -123,6 +124,17 @@ function App() {
                   <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant']}>
                     <DashboardLayout>
                       <CollectionsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/leads"
+                element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff']}>
+                    <DashboardLayout>
+                      <LeadsPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

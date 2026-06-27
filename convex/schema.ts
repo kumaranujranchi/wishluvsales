@@ -152,6 +152,19 @@ export default defineSchema({
     updated_at: v.string(),
   }).index("by_supabase_id", ["supabase_id"]).index("by_sale", ["sale_id"]),
 
+  leads: defineTable({
+    name: v.string(),
+    phone: v.string(),
+    email: v.optional(v.string()),
+    project_id: v.string(),
+    assigned_to: v.string(),
+    source: v.string(),
+    status: v.string(),
+    notes: v.optional(v.string()),
+    created_at: v.string(),
+    updated_at: v.string(),
+  }).index("by_assigned_to", ["assigned_to"]).index("by_project", ["project_id"]),
+
   targets: defineTable({
     supabase_id: v.optional(v.string()),
     user_id: v.id("profiles"),
