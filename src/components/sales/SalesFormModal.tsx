@@ -198,6 +198,7 @@ export function SalesFormModal({ isOpen, onClose, onSuccess, editingSale }: Sale
                 unit_number: formData.unitNumber,
                 area_sqft: parseFloat(formData.areaSqft),
                 rate_per_sqft: parseFloat(formData.ratePerSqft),
+                base_price: parseFloat(formData.areaSqft) * parseFloat(formData.ratePerSqft),
                 plc: parseFloat(formData.plc),
                 dev_charges: parseFloat(formData.devCharges),
                 additional_charges: parseFloat(formData.otherCharges),
