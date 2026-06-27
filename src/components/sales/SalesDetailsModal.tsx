@@ -36,6 +36,8 @@ export function SalesDetailsModal({ isOpen, onClose, sale, onCancel, onEdit, onD
     if (!sale) return null;
 
     const basePrice = sale.base_price || (sale.area_sqft && sale.rate_per_sqft ? sale.area_sqft * sale.rate_per_sqft : 0);
+    const plcTotal = basePrice * ((sale.plc || 0) / 100);
+    const devChargesTotal = (sale.area_sqft || 0) * (sale.dev_charges || 0);
 
     // Helper to safely format date
     const formatDate = (dateString: string | null | undefined) => {
@@ -169,19 +171,22 @@ export function SalesDetailsModal({ isOpen, onClose, sale, onCancel, onEdit, onD
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border dark:border-white/10">
                         <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Base Price</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Base Price</div>
                             <div className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(basePrice)}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">({formatCurrency(sale.rate_per_sqft || 0)}/Sq. Ft.)</div>
                         </div>
                         <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">PLC</div>
-                            <div className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(sale.plc || 0)}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">PLC</div>
+                            <div className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(plcTotal)}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">({sale.plc || 0}%)</div>
                         </div>
                         <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Dev Charges</div>
-                            <div className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(sale.dev_charges || 0)}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Dev Charges</div>
+                            <div className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(devChargesTotal)}</div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">({formatCurrency(sale.dev_charges || 0)}/Sq. Ft.)</div>
                         </div>
                         <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Discount</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Discount</div>
                             <div className="font-semibold text-red-600 dark:text-red-400">-{formatCurrency(sale.discount || 0)}</div>
                         </div>
                     </div>
