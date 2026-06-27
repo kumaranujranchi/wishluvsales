@@ -165,6 +165,12 @@ export default defineSchema({
     updated_at: v.string(),
   }).index("by_assigned_to", ["assigned_to"]).index("by_project", ["project_id"]),
 
+  otps: defineTable({
+    email: v.string(),
+    otp: v.string(),
+    expires_at: v.number(),
+  }).index("by_email", ["email"]),
+
   targets: defineTable({
     supabase_id: v.optional(v.string()),
     user_id: v.id("profiles"),

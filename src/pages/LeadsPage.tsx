@@ -27,7 +27,7 @@ import {
   Link
 } from 'lucide-react';
 import { LeadFormModal } from '../components/leads/LeadFormModal';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 interface JoinedLead {
@@ -37,8 +37,7 @@ interface JoinedLead {
 }
 
 export function LeadsPage() {
-  const { user } = useUser();
-  const profile = useQuery(api.profiles.getByEmail, { email: user?.emailAddresses[0]?.emailAddress || '' });
+  const { profile } = useAuth();
   const dialog = useDialog();
 
   // Convex Hooks

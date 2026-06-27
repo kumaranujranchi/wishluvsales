@@ -1,5 +1,4 @@
-import { createContext, useContext, useMemo, ReactNode } from 'react';
-import { useUser, useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
+import { createContext, useContext, useMemo, useState, useEffect, ReactNode } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Profile } from '../types/database';
@@ -9,7 +8,7 @@ interface AuthContextType {
   profile: Profile | null;
   session: any | null;
   loading: boolean;
-  signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -17,56 +16,72 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user, isLoaded: isUserLoaded } = useUser();
-  const { isLoaded: isSessionLoaded, signOut: clerkSignOut } = useClerkAuth();
-  useClerk(); // keep Clerk initialized
-  
-  // Get primary email from Clerk user (fallback to first email if primary not set)
-  const primaryEmail = user?.primaryEmailAddress?.emailAddress 
-    ?? user?.emailAddresses?.[0]?.emailAddress 
-    ?? null;
+  const [userEmail, setUserEmail] = useState<string | null>(() => {
+    return localStorage.getItem('wishpro_user_email');
+  });
+
+  const [loading, setLoading] = useState(true);
 
   // Reactively fetch user profile from Convex by email
   const profileRaw = useQuery(
     api.profiles.getByEmail,
-    primaryEmail ? { email: primaryEmail } : "skip"
+    userEmail ? { email: userEmail } : "skip"
   );
-  
-  // loading is true until both Clerk AND Convex have finished loading
-  const isProfileLoading = primaryEmail ? profileRaw === undefined : false;
-  const loading = !isUserLoaded || !isSessionLoaded || isProfileLoading;
-  
-  // Compute profile DIRECTLY from profileRaw in same render cycle.
-  // IMPORTANT: Do NOT use useState + useEffect here — that causes a race condition
-  // where loading=false but profile=null for one render, causing ProtectedRoute to
-  // redirect to /unauthorized prematurely.
+
+  // loading is true until Convex has finished loading (if logged in)
+  useEffect(() => {
+    if (!userEmail) {
+      setLoading(false);
+    } else if (profileRaw !== undefined) {
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+  }, [userEmail, profileRaw]);
+
   const profile = useMemo<Profile | null>(() => {
     if (!profileRaw) return null;
     if (profileRaw.is_active === false) return null;
     return { ...profileRaw, id: profileRaw._id, force_password_change: false } as Profile;
   }, [profileRaw]);
 
-  console.log('Auth State:', { 
-    isUserLoaded, isSessionLoaded, primaryEmail, 
-    isProfileLoading, loading, 
+  // Mock Clerk user object for compatibility with pages that reference clerk's user
+  const user = useMemo(() => {
+    if (!profile) return null;
+    return {
+      id: profile.employee_id,
+      primaryEmailAddress: {
+        emailAddress: profile.email
+      },
+      emailAddresses: [{ emailAddress: profile.email }],
+      fullName: profile.full_name,
+    };
+  }, [profile]);
+
+  console.log('Auth State (Custom):', { 
+    userEmail, loading, 
     profile: profile ? { email: profile.email, role: profile.role } : null 
   });
 
-  const signIn = async () => {
-    return { error: new Error('Please use Clerk Login components.') };
+  const signIn = async (email: string) => {
+    setUserEmail(email);
+    localStorage.setItem('wishpro_user_email', email);
+    setLoading(true);
+    return { error: null };
   };
 
   const signOut = async () => {
-    await clerkSignOut();
+    setUserEmail(null);
+    localStorage.removeItem('wishpro_user_email');
   };
 
   const refreshProfile = async () => {
-    // Convex useQuery auto-refreshes on data changes — no-op kept for API compatibility
+    // Convex useQuery auto-refreshes on data changes
   };
 
   return (
     <AuthContext.Provider value={{ 
-        user: user || null, 
+        user, 
         profile, 
         session: null, 
         loading, 

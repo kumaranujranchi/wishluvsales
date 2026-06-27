@@ -38,7 +38,7 @@ import {
   endOfMonth,
   isAfter
 } from 'date-fns';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 interface MatchedPayment {
@@ -50,8 +50,7 @@ interface MatchedPayment {
 }
 
 export function CollectionsPage() {
-  const { user } = useUser();
-  const profile = useQuery(api.profiles.getByEmail, { email: user?.emailAddresses[0]?.emailAddress || '' });
+  const { profile } = useAuth();
   const dialog = useDialog();
 
   // Convex Hooks

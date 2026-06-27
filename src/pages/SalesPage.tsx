@@ -24,13 +24,12 @@ import {
   startOfMonth,
   endOfMonth
 } from 'date-fns';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 export function SalesPage() {
-  const { user } = useUser();
-  const profile = useQuery(api.profiles.getByEmail, { email: user?.emailAddresses[0]?.emailAddress || '' });
+  const { profile } = useAuth();
   const dialog = useDialog();
 
   // Convex Hooks

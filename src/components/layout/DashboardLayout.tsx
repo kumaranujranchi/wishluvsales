@@ -1,6 +1,5 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SignOutButton } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileModal } from '../profile/ProfileModal';
 import { Tooltip } from '../ui/Tooltip';
@@ -57,7 +56,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -206,19 +205,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Bottom Actions */}
           <div className="p-4 border-t border-dashed border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-transparent">
-            <SignOutButton>
-              <button
-                className={`
-                    w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
-                    text-slate-500 dark:text-gray-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400
-                    transition-all duration-200 group
-                    ${isCollapsed ? 'justify-center' : ''}
-                  `}
-              >
-                <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-                {!isCollapsed && <span className="font-semibold text-sm">Sign Out</span>}
-              </button>
-            </SignOutButton>
+            <button
+              onClick={signOut}
+              className={`
+                  w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
+                  text-slate-500 dark:text-gray-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400
+                  transition-all duration-200 group
+                  ${isCollapsed ? 'justify-center' : ''}
+                `}
+            >
+              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+              {!isCollapsed && <span className="font-semibold text-sm">Sign Out</span>}
+            </button>
           </div>
         </div>
       </aside>
