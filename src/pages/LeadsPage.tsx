@@ -22,6 +22,8 @@ import {
   Trash2, 
   UserCheck,
   Compass,
+  ChevronDown,
+  ChevronUp,
   Link
 } from 'lucide-react';
 import { LeadFormModal } from '../components/leads/LeadFormModal';
