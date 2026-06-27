@@ -20,6 +20,7 @@ import {
   ChevronRight,
   BarChart2,
   Contact,
+  DollarSign,
   LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant', 'driver', 'receptionist'] },
   { label: 'My Performance', path: '/performance', icon: BarChart2, roles: ['sales_executive', 'team_leader'] },
   { label: 'Sales', path: '/sales', icon: TrendingUp, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant'] },
+  { label: 'Collections', path: '/collections', icon: DollarSign, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant'] },
   { label: 'Users', path: '/users', icon: Users, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Departments', path: '/departments', icon: Briefcase, roles: ['super_admin', 'admin', 'director'] },
   { label: 'Projects', path: '/projects', icon: Building, roles: ['super_admin', 'admin', 'director'] },

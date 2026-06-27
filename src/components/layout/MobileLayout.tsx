@@ -12,6 +12,7 @@ import {
     Target,
     TrendingUp,
     Contact,
+    DollarSign,
     LogOut
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const navItems = [
     { label: 'Projects', path: '/projects', icon: Building, roles: ['super_admin', 'admin', 'director'] },
     { label: 'Targets', path: '/targets', icon: Target, roles: ['super_admin', 'admin', 'director', 'team_leader', 'sales_executive'] },
     { label: 'Sales', path: '/sales', icon: TrendingUp, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'crm_staff', 'accountant'] },
+    { label: 'Collections', path: '/collections', icon: DollarSign, roles: ['super_admin', 'admin', 'director', 'sales_executive', 'team_leader', 'crm_staff', 'accountant'] },
 ];
 
 export function MobileLayout({ children }: MobileLayoutProps) {

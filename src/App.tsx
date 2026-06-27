@@ -12,6 +12,7 @@ import { DepartmentsPage } from './pages/DepartmentsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { TargetsPage } from './pages/TargetsPage';
 import { SalesPage } from './pages/SalesPage';
+import { CollectionsPage } from './pages/CollectionsPage';
 import { MyPerformancePage } from './pages/MyPerformancePage';
 import { DirectoryPage } from './pages/DirectoryPage';
 
@@ -111,6 +112,17 @@ function App() {
                   <ProtectedRoute>
                     <DashboardLayout>
                       <SalesPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/collections"
+                element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'director', 'team_leader', 'sales_executive', 'crm_staff', 'accountant']}>
+                    <DashboardLayout>
+                      <CollectionsPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
