@@ -58,7 +58,7 @@ export function LoginPage() {
         } else if (res.reason === "USER_INACTIVE") {
           setError("Your account has been deactivated. Please contact the Administrator.");
         } else {
-          setError("Failed to send OTP. Please try again later.");
+          setError(`Failed to send OTP: ${res.errorDetail || res.reason || "SMTP Error"}. Please check your Convex environment variables.`);
         }
       }
     } catch (err: any) {
