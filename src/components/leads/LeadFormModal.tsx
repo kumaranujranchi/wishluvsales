@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDialog } from '../../contexts/DialogContext';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Doc, Id } from '../../../convex/_generated/dataModel';
 import { Button } from '../ui/Button';
@@ -31,9 +31,10 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
     p => ['sales_executive', 'team_leader', 'super_admin', 'admin'].includes(p.role)
   );
 
-  // Convex Mutations
+  // Convex Mutations & Actions
   const addLead = useMutation(api.leads.add);
   const updateLead = useMutation(api.leads.update);
+  const sendLeadNotification = useAction(api.leadNotifier.sendLeadAssignmentNotification);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -97,8 +98,14 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
     setIsSubmitting(true);
     const now = new Date().toISOString();
 
+    // Resolve project name for the notification email
+    const selectedProject = projects.find(p => p._id === formData.projectId);
+    const projectName = selectedProject?.name || 'Unknown Project';
+
     try {
       if (editingLead) {
+        const isReassigned = editingLead.assigned_to !== formData.assignedTo;
+
         await updateLead({
           id: editingLead._id,
           name: formData.name,
@@ -111,6 +118,21 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
           notes: formData.notes || undefined,
           updated_at: now
         });
+
+        // Send email + manager notification only if lead was reassigned
+        if (isReassigned) {
+          sendLeadNotification({
+            assignedToId: formData.assignedTo,
+            leadName: formData.name,
+            leadPhone: formData.phone,
+            leadEmail: formData.email || undefined,
+            projectName,
+            source: formData.source,
+            notes: formData.notes || undefined,
+            isReassignment: true,
+          }).catch((err) => console.error('[LeadNotifier] Reassignment notification failed:', err));
+        }
+
         await dialog.alert('Lead updated successfully!', { variant: 'success' });
       } else {
         await addLead({
@@ -125,6 +147,19 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
           created_at: now,
           updated_at: now
         });
+
+        // Send email to assigned user + notification to reporting manager
+        sendLeadNotification({
+          assignedToId: formData.assignedTo,
+          leadName: formData.name,
+          leadPhone: formData.phone,
+          leadEmail: formData.email || undefined,
+          projectName,
+          source: formData.source,
+          notes: formData.notes || undefined,
+          isReassignment: false,
+        }).catch((err) => console.error('[LeadNotifier] New lead notification failed:', err));
+
         await dialog.alert('Lead assigned successfully!', { variant: 'success' });
       }
       onSuccess();
