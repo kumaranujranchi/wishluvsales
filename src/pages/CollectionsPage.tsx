@@ -535,6 +535,7 @@ export function CollectionsPage() {
               <p className="text-gray-500 mt-1">Try adjusting your filters or search query.</p>
             </div>
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-300 font-medium">
@@ -647,6 +648,7 @@ export function CollectionsPage() {
                 </div>
               </div>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
