@@ -20,6 +20,8 @@ import {
   Eye, 
   ChevronDown, 
   ChevronUp, 
+  ChevronLeft, 
+  ChevronRight, 
   RotateCcw, 
   ArrowUp, 
   ArrowDown, 
@@ -118,6 +120,10 @@ export function CollectionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState('all');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
+
   // Modal States
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -146,6 +152,7 @@ export function CollectionsPage() {
       to = format(endOfMonth(now), 'yyyy-MM-dd');
     }
     setFilters(prev => ({ ...prev, dateFrom: from, dateTo: to }));
+    setCurrentPage(1);
   };
 
   const clearAllFilters = () => {
@@ -160,6 +167,7 @@ export function CollectionsPage() {
     });
     setSearchQuery('');
     setTimeFilter('all');
+    setCurrentPage(1);
   };
 
   // --- Local Join to Match Payment with Sales details ---
@@ -263,6 +271,21 @@ export function CollectionsPage() {
       return 0;
     });
   }, [matchedPayments, profile, isSalesExecutive, isTeamLeader, filters, searchQuery, sortConfig, profilesList]);
+
+  // Reset to page 1 whenever filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, searchQuery]);
+
+  // Pagination computed values
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredData.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredData, currentPage, rowsPerPage]);
+
+  const paginationStartRecord = filteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const paginationEndRecord = Math.min(currentPage * rowsPerPage, filteredData.length);
 
   // --- Metrics ---
   const metrics = useMemo(() => {
@@ -535,7 +558,7 @@ export function CollectionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredData.map(({ payment, sale, customer, project, executive }) => (
+                  {paginatedData.map(({ payment, sale, customer, project, executive }) => (
                     <tr key={payment._id} className="hover:bg-gray-50 transition-colors dark:hover:bg-white/5">
                       <td className="px-4 py-3 whitespace-nowrap text-gray-500">
                         {new Date(payment.payment_date).toLocaleDateString()}
@@ -578,6 +601,51 @@ export function CollectionsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 px-2 border-t border-gray-100 dark:border-gray-800 mt-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Showing <span className="font-semibold text-gray-700 dark:text-gray-200">{paginationStartRecord}</span> to <span className="font-semibold text-gray-700 dark:text-gray-200">{paginationEndRecord}</span> of <span className="font-semibold text-gray-700 dark:text-gray-200">{filteredData.length}</span> records
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <span>Rows per page:</span>
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1673FF]/30 cursor-pointer"
+                  >
+                    {[10, 15, 25, 50].map(val => (
+                      <option key={val} value={val}>{val}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
