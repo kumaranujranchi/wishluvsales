@@ -17,13 +17,19 @@ const WEBHOOK_URL = "https://strong-tapir-797.convex.site/api/webhook/meta-lead"
  */
 function parseRowData(rowData, headers) {
   var name = "", phone = "", email = "", plotSize = "", budget = "";
-  var city = "Patna"; // Default city
+  var city = "Patna";
 
-  // Direct Column C Mapping for Customer Full Name
-  if (rowData.length > 2) {
-    var rawName = String(rowData[2] || "").trim();
-    if (rawName && rawName.indexOf("full_name") === -1 && rawName.indexOf("Ad -") === -1 && rawName.indexOf("Ad Set") === -1 && rawName.indexOf("l:") === -1) {
-      name = rawName;
+  // 1. Dynamic Header Lookup for 'full_name' (e.g. Column O)
+  if (headers && headers.length > 0) {
+    for (var h = 0; h < headers.length; h++) {
+      var headerText = String(headers[h] || "").trim().toLowerCase();
+      if (headerText === "full_name" || headerText === "full name" || headerText === "name" || headerText === "customer name" || headerText === "buyer name") {
+        var valName = String(rowData[h] || "").trim();
+        if (valName && valName.toLowerCase() !== headerText && valName.indexOf("ag:") !== 0 && valName.indexOf("l:") !== 0 && valName.indexOf("as:") !== 0 && valName.indexOf("c:") !== 0 && valName.indexOf("f:") !== 0) {
+          name = valName;
+          break;
+        }
+      }
     }
   }
 
@@ -40,27 +46,27 @@ function parseRowData(rowData, headers) {
 
     var digits = val.replace(/\D/g, "");
 
-    // 1. Phone Number Detection
+    // 2. Phone Number Detection (p:+91 or 10-12 digits)
     if (!phone && (val.indexOf("p:") === 0 || val.indexOf("+91") === 0 || (digits.length >= 10 && digits.length <= 13)) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1 && header.indexOf("campaign") === -1) {
       phone = digits.length >= 10 ? digits.slice(-10) : digits;
     }
-    // 2. Email Detection
+    // 3. Email Detection
     else if (!email && val.indexOf("@") !== -1) {
       email = val;
     }
-    // 3. Fallback Name Detection
-    else if (!name && (header.indexOf("full_name") !== -1 || header.indexOf("name") !== -1) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1) {
+    // 4. Fallback Name Detection if Header lookup didn't find it
+    else if (!name && (header.indexOf("full_name") !== -1 || header.indexOf("name") !== -1) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1 && val.indexOf("ag:") !== 0 && val.indexOf("l:") !== 0 && digits.length < 5) {
       name = val;
     }
-    // 4. Plot Size Detection
-    else if (!plotSize && (j === 0 || header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1)) {
+    // 5. Plot Size Detection
+    else if (!plotSize && (header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1)) {
       plotSize = val;
     }
-    // 5. Budget Detection
-    else if (!budget && (j === 1 || header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1)) {
+    // 6. Budget Detection
+    else if (!budget && (header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1)) {
       budget = val;
     }
-    // 6. City Detection
+    // 7. City Detection
     else if (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1) {
       city = val;
     }
