@@ -20,14 +20,13 @@ http.route({
       const source = body.source || body.Source || "Meta";
       const project_id = body.project_id || body.projectId || body.project_name || "Vrinda Green City";
 
-      // Combine extra details into notes (Plot size, Budget, City)
+      // Combine ONLY Plot size, Budget, City into notes (ignoring Meta ID junk)
       const extraNotes = [];
       if (body.plot_size || body["Plot Size"]) extraNotes.push(`Plot Size: ${body.plot_size || body["Plot Size"]}`);
       if (body.budget || body.Budget) extraNotes.push(`Budget: ${body.budget || body.Budget}`);
       if (body.city || body.City) extraNotes.push(`City: ${body.city || body.City}`);
-      if (body.notes || body.Notes) extraNotes.push(body.notes || body.Notes);
 
-      const notes = extraNotes.length > 0 ? extraNotes.join(" | ") : "Meta Ads Lead";
+      const notes = extraNotes.length > 0 ? extraNotes.join(" | ") : "Meta Lead";
 
       if (!phone || phone.length < 7) {
         return new Response(

@@ -16,12 +16,13 @@ const WEBHOOK_URL = "https://strong-tapir-797.convex.site/api/webhook/meta-lead"
  * Smart Dynamic Parser — Auto detects Phone, Name, Email, Plot Size, Budget, City
  */
 function parseRowData(rowData, headers) {
-  var name = "", phone = "", email = "", plotSize = "", budget = "", city = "", extraNotes = "";
+  var name = "", phone = "", email = "", plotSize = "", budget = "";
+  var city = "Patna"; // Default city
 
-  // 1. Direct Column C Mapping for Customer Full Name
+  // Direct Column C Mapping for Customer Full Name
   if (rowData.length > 2) {
     var rawName = String(rowData[2] || "").trim();
-    if (rawName && rawName.indexOf("full_name") === -1 && rawName.indexOf("Ad -") === -1 && rawName.indexOf("Ad Set") === -1) {
+    if (rawName && rawName.indexOf("full_name") === -1 && rawName.indexOf("Ad -") === -1 && rawName.indexOf("Ad Set") === -1 && rawName.indexOf("l:") === -1) {
       name = rawName;
     }
   }
@@ -32,42 +33,36 @@ function parseRowData(rowData, headers) {
 
     var header = headers && headers[j] ? String(headers[j]).toLowerCase() : "";
 
-    // Skip header labels
-    if (val.indexOf("phone_number") !== -1 || val.indexOf("full_name") !== -1 || val === "email" || val === "city") {
+    // Skip header labels & Meta IDs
+    if (val.indexOf("phone_number") !== -1 || val.indexOf("full_name") !== -1 || val.indexOf("l:") === 0 || val.indexOf("ag:") === 0 || val.indexOf("as:") === 0 || val.indexOf("c:") === 0 || val.indexOf("f:") === 0) {
       continue;
     }
 
     var digits = val.replace(/\D/g, "");
 
-    // 2. Phone Number Detection (p:+91 or 10-12 digits, skipping Campaign names)
+    // 1. Phone Number Detection
     if (!phone && (val.indexOf("p:") === 0 || val.indexOf("+91") === 0 || (digits.length >= 10 && digits.length <= 13)) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1 && header.indexOf("campaign") === -1) {
       phone = digits.length >= 10 ? digits.slice(-10) : digits;
     }
-    // 3. Email Detection
+    // 2. Email Detection
     else if (!email && val.indexOf("@") !== -1) {
       email = val;
     }
-    // 4. Fallback Name Detection if Col C was empty
+    // 3. Fallback Name Detection
     else if (!name && (header.indexOf("full_name") !== -1 || header.indexOf("name") !== -1) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1) {
       name = val;
     }
-    // 5. Plot Size Detection
+    // 4. Plot Size Detection
     else if (!plotSize && (j === 0 || header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1)) {
       plotSize = val;
     }
-    // 6. Budget Detection
+    // 5. Budget Detection
     else if (!budget && (j === 1 || header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1)) {
       budget = val;
     }
-    // 7. City Detection
-    else if (!city && (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1)) {
+    // 6. City Detection
+    else if (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1) {
       city = val;
-    }
-    else if (val.indexOf("Ad -") !== -1 || val.indexOf("Ad Set") !== -1) {
-      extraNotes += (extraNotes ? " | " : "") + "Campaign: " + val;
-    }
-    else {
-      extraNotes += (extraNotes ? " | " : "") + val;
     }
   }
 
@@ -77,8 +72,7 @@ function parseRowData(rowData, headers) {
     email: email,
     plotSize: plotSize,
     budget: budget,
-    city: city,
-    notes: extraNotes
+    city: city
   };
 }
 
