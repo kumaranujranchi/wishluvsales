@@ -11,13 +11,21 @@ http.route({
     try {
       const body = await request.json();
 
-      const name = body.name || body.LeadName || body.Full_Name || body["Full Name"] || "Meta Lead";
+      const name = body.name || body.LeadName || body.Full_Name || body["Full Name"] || body.full_name || "Meta Lead";
       const rawPhone = String(body.phone || body.phone_number || body.Phone || body.Mobile || body["Phone Number"] || "");
       const phone = rawPhone.replace(/\D/g, "").slice(-10);
       const email = body.email || body.Email || body["Email Address"] || undefined;
       const source = body.source || body.Source || "Meta";
-      const notes = body.notes || body.Notes || body.campaign_name || body.form_name || undefined;
-      const project_id = body.project_id || body.projectId || undefined;
+      const project_id = body.project_id || body.projectId || body.project_name || "Vrinda Green City";
+
+      // Combine extra details into notes (Plot size, Budget, City)
+      const extraNotes = [];
+      if (body.plot_size || body["Plot Size"]) extraNotes.push(`Plot Size: ${body.plot_size || body["Plot Size"]}`);
+      if (body.budget || body.Budget) extraNotes.push(`Budget: ${body.budget || body.Budget}`);
+      if (body.city || body.City) extraNotes.push(`City: ${body.city || body.City}`);
+      if (body.notes || body.Notes) extraNotes.push(body.notes || body.Notes);
+
+      const notes = extraNotes.length > 0 ? extraNotes.join(" | ") : "Meta Ads Lead";
 
       if (!phone || phone.length < 10) {
         return new Response(

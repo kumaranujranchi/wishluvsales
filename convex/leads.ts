@@ -137,11 +137,22 @@ export const autoAssignMetaLead = mutation({
 
     const assignedExecutive = executives[nextIndex];
 
-    // 3. Resolve project_id if not provided
+    // 3. Resolve project_id (match by name e.g. "Vrinda Green City" or fallback to Vrinda project)
     let projectId = args.project_id;
-    if (!projectId) {
-      const firstProject = await ctx.db.query("projects").first();
-      projectId = firstProject ? firstProject._id : "general";
+    const allProjects = await ctx.db.query("projects").collect();
+    
+    if (projectId) {
+      const matchByName = allProjects.find(
+        (p) => p._id === projectId || p.name.toLowerCase().includes(projectId.toLowerCase())
+      );
+      if (matchByName) {
+        projectId = matchByName._id;
+      }
+    }
+
+    if (!projectId || !allProjects.some((p) => p._id === projectId)) {
+      const vrindaProject = allProjects.find((p) => p.name.toLowerCase().includes("vrinda"));
+      projectId = vrindaProject ? vrindaProject._id : (allProjects[0] ? allProjects[0]._id : "general");
     }
 
     // 4. Create the new lead
