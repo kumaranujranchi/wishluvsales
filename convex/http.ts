@@ -54,12 +54,19 @@ http.route({
 
       // Send email/manager notification asynchronously
       try {
+        let projectName = "Vrinda Green City";
+        if (result.project_id) {
+          const allProjects = await ctx.runQuery(api.projects.list);
+          const p = allProjects.find((prj: any) => prj._id === result.project_id || prj.supabase_id === result.project_id);
+          if (p) projectName = p.name;
+        }
+
         await ctx.runAction(api.leadNotifier.sendLeadAssignmentNotification, {
           assignedToId: result.assigned_to_id,
           leadName: name,
           leadPhone: phone,
           leadEmail: email,
-          projectName: "Meta Campaign",
+          projectName: projectName,
           source: source,
           notes: notes,
           isReassignment: false,
