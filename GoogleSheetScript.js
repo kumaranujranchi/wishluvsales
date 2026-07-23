@@ -19,6 +19,10 @@ function parseRowData(rowData, headers) {
   var name = "", phone = "", email = "", plotSize = "", budget = "";
   var city = "Patna";
 
+  if (!rowData || !rowData.length) {
+    return { name: "Meta Lead", phone: "", email: "", plotSize: "", budget: "", city: city };
+  }
+
   // 1. Dynamic Header Lookup for 'full_name' (e.g. Column O)
   if (headers && headers.length > 0) {
     for (var h = 0; h < headers.length; h++) {
