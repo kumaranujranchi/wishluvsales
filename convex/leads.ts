@@ -142,8 +142,9 @@ export const autoAssignMetaLead = mutation({
     const allProjects = await ctx.db.query("projects").collect();
     
     if (projectId) {
+      const searchTarget = projectId.toLowerCase();
       const matchByName = allProjects.find(
-        (p) => p._id === projectId || p.name.toLowerCase().includes(projectId.toLowerCase())
+        (p) => p._id === projectId || p.name.toLowerCase().includes(searchTarget)
       );
       if (matchByName) {
         projectId = matchByName._id;
