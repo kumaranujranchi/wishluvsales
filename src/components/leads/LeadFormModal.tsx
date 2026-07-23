@@ -8,7 +8,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Modal, ModalFooter } from '../ui/Modal';
-import { User, Phone, Mail, Layers, Compass, FileText, Users } from 'lucide-react';
+import { User, Phone, Mail, Layers, Compass, FileText } from 'lucide-react';
 
 interface LeadFormModalProps {
   isOpen: boolean;
@@ -25,15 +25,11 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
   // Convex Queries
   const projects = useQuery(api.projects.list) || [];
   const profiles = useQuery(api.profiles.list) || [];
-  const executiveStats = useQuery(api.leads.getExecutiveLeadStats) || [];
 
   // Filter profiles to get sales team members (sales executive, team leader, super_admin, admin)
   const salesTeam = profiles.filter(
     p => ['sales_executive', 'team_leader', 'super_admin', 'admin'].includes(p.role)
   );
-
-  // Only sales_executive stats (for cards)
-  const onlySalesExecStats = executiveStats.filter(s => s.total >= 0);
 
   // Convex Mutations & Actions
   const addLead = useMutation(api.leads.add);
@@ -228,73 +224,6 @@ export function LeadFormModal({ isOpen, onClose, onSuccess, editingLead }: LeadF
               options={projects.map(p => ({ label: p.name, value: p._id }))}
               required
             />
-            {/* Sales Executive Lead Distribution Cards */}
-            {!editingLead && onlySalesExecStats.length > 0 && (
-              <div className="mb-1">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Users size={13} className="text-slate-400" />
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                    Sales Executive — Current Load
-                  </span>
-                </div>
-                <div
-                  className="grid gap-2 max-h-48 overflow-y-auto pr-0.5"
-                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}
-                >
-                  {[...onlySalesExecStats]
-                    .sort((a, b) => a.total - b.total)
-                    .map((exec) => {
-                      const initials = exec.name
-                        .split(' ')
-                        .map((n: string) => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase();
-                      const isSelected = formData.assignedTo === exec.id.toString();
-                      return (
-                        <div
-                          key={exec.id.toString()}
-                          onClick={() => setFormData({ ...formData, assignedTo: exec.id.toString() })}
-                          className={`cursor-pointer rounded-xl border p-2.5 transition-all duration-150 select-none ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/25 shadow ring-1 ring-blue-400'
-                              : 'border-gray-200 dark:border-white/10 bg-white dark:bg-black/10 hover:border-blue-300 hover:shadow-sm'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            {exec.avatar ? (
-                              <img src={exec.avatar} alt={exec.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#1673FF] to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                                {initials}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <div className="text-[11px] font-semibold text-[#0A1C37] dark:text-white truncate leading-tight">{exec.name}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-[10px] text-gray-500">Leads</span>
-                            <span className={`text-sm font-bold leading-none ${isSelected ? 'text-blue-600' : 'text-[#0A1C37] dark:text-white'}`}>{exec.total}</span>
-                          </div>
-                          {exec.total > 0 ? (
-                            <div className="w-full flex h-1 rounded-full overflow-hidden gap-px">
-                              {exec.pending > 0 && <div className="bg-amber-400" title={`Pending: ${exec.pending}`} style={{ width: `${(exec.pending / exec.total) * 100}%` }} />}
-                              {exec.contacted > 0 && <div className="bg-blue-400" title={`Contacted: ${exec.contacted}`} style={{ width: `${(exec.contacted / exec.total) * 100}%` }} />}
-                              {exec.converted > 0 && <div className="bg-green-400" title={`Converted: ${exec.converted}`} style={{ width: `${(exec.converted / exec.total) * 100}%` }} />}
-                              {exec.lost > 0 && <div className="bg-red-400" title={`Lost: ${exec.lost}`} style={{ width: `${(exec.lost / exec.total) * 100}%` }} />}
-                            </div>
-                          ) : (
-                            <div className="w-full h-1 rounded-full bg-gray-100 dark:bg-white/10" />
-                          )}
-                          {isSelected && <div className="mt-1 text-center text-[9px] text-blue-500 font-semibold">✓ Selected</div>}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
             <Select
               label="Assign To *"
               value={formData.assignedTo}

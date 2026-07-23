@@ -44,6 +44,7 @@ export function LeadsPage() {
   const leadsRaw = useQuery(api.leads.listAll);
   const projectsRaw = useQuery(api.projects.list);
   const profilesRaw = useQuery(api.profiles.list);
+  const executiveStatsRaw = useQuery(api.leads.getExecutiveLeadStats);
   const deleteLead = useMutation(api.leads.remove);
   const updateLead = useMutation(api.leads.update);
 
@@ -327,6 +328,91 @@ export function LeadsPage() {
           iconBgColor="bg-green-100"
         />
       </div>
+
+      {/* Sales Executive Lead Distribution Cards */}
+      {isAdminOrCRM && executiveStatsRaw && executiveStatsRaw.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={15} className="text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Sales Executive — Lead Overview</h3>
+            <span className="text-xs text-gray-400">({executiveStatsRaw.length} executives)</span>
+          </div>
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
+          >
+            {[...executiveStatsRaw]
+              .sort((a, b) => b.total - a.total)
+              .map((exec) => {
+                const initials = exec.name
+                  .split(' ')
+                  .map((n: string) => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+                return (
+                  <div
+                    key={exec.id.toString()}
+                    className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {/* Avatar + name */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      {exec.avatar ? (
+                        <img src={exec.avatar} alt={exec.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1673FF] to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          {initials}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[#0A1C37] dark:text-white truncate leading-tight">{exec.name}</div>
+                        <div className="text-[10px] text-gray-400">Sales Executive</div>
+                      </div>
+                    </div>
+
+                    {/* Total count */}
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Total Leads</span>
+                      <span className="text-xl font-bold text-[#0A1C37] dark:text-white leading-none">{exec.total}</span>
+                    </div>
+
+                    {/* Mini status color bar */}
+                    {exec.total > 0 ? (
+                      <div className="w-full flex h-1.5 rounded-full overflow-hidden gap-px mb-2">
+                        {exec.pending > 0 && <div className="bg-amber-400" title={`Pending: ${exec.pending}`} style={{ width: `${(exec.pending / exec.total) * 100}%` }} />}
+                        {exec.contacted > 0 && <div className="bg-blue-400" title={`Contacted: ${exec.contacted}`} style={{ width: `${(exec.contacted / exec.total) * 100}%` }} />}
+                        {exec.converted > 0 && <div className="bg-green-400" title={`Converted: ${exec.converted}`} style={{ width: `${(exec.converted / exec.total) * 100}%` }} />}
+                        {exec.lost > 0 && <div className="bg-red-400" title={`Lost: ${exec.lost}`} style={{ width: `${(exec.lost / exec.total) * 100}%` }} />}
+                      </div>
+                    ) : (
+                      <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-slate-700 mb-2" />
+                    )}
+
+                    {/* Status pills */}
+                    <div className="grid grid-cols-2 gap-1">
+                      <div className="rounded bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-center">
+                        <div className="text-xs font-semibold text-amber-600">{exec.pending}</div>
+                        <div className="text-[9px] text-amber-500">Pending</div>
+                      </div>
+                      <div className="rounded bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-center">
+                        <div className="text-xs font-semibold text-blue-600">{exec.contacted}</div>
+                        <div className="text-[9px] text-blue-400">Contacted</div>
+                      </div>
+                      <div className="rounded bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 text-center">
+                        <div className="text-xs font-semibold text-green-600">{exec.converted}</div>
+                        <div className="text-[9px] text-green-400">Converted</div>
+                      </div>
+                      <div className="rounded bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 text-center">
+                        <div className="text-xs font-semibold text-red-500">{exec.lost}</div>
+                        <div className="text-[9px] text-red-400">Lost</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Filters & Tables */}
       <Card>
