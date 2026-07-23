@@ -13,7 +13,9 @@ http.route({
 
       const name = body.name || body.LeadName || body.Full_Name || body["Full Name"] || body.full_name || "Meta Lead";
       const rawPhone = String(body.phone || body.phone_number || body.Phone || body.Mobile || body["Phone Number"] || "");
-      const phone = rawPhone.replace(/\D/g, "").slice(-10);
+      const digitsOnly = rawPhone.replace(/\D/g, "");
+      const phone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+
       const email = body.email || body.Email || body["Email Address"] || undefined;
       const source = body.source || body.Source || "Meta";
       const project_id = body.project_id || body.projectId || body.project_name || "Vrinda Green City";
@@ -27,9 +29,9 @@ http.route({
 
       const notes = extraNotes.length > 0 ? extraNotes.join(" | ") : "Meta Ads Lead";
 
-      if (!phone || phone.length < 10) {
+      if (!phone || phone.length < 7) {
         return new Response(
-          JSON.stringify({ success: false, error: "Valid 10-digit phone number is required" }),
+          JSON.stringify({ success: false, error: "Valid phone number with at least 7 digits is required" }),
           {
             status: 400,
             headers: {

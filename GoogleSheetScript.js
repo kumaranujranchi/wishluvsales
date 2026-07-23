@@ -18,8 +18,21 @@ function sendLeadToCRM(name, phone, email, plotSize, budget, city) {
     return;
   }
 
+  var rawPhone = String(phone);
+  // Skip header row if phone is 'phone_number'
+  if (rawPhone.indexOf("phone_number") !== -1 || rawPhone.indexOf("phone") !== -1) {
+    Logger.log("Skipping header row");
+    return;
+  }
+
   // Clean phone number (removes p:+91 prefix or non-digit characters)
-  var cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
+  var digits = rawPhone.replace(/\D/g, "");
+  var cleanPhone = digits.length >= 10 ? digits.slice(-10) : digits;
+
+  if (!cleanPhone || cleanPhone.length < 7) {
+    Logger.log("Skipping invalid phone: " + phone);
+    return;
+  }
 
   const payload = {
     name: name || "Meta Lead",
@@ -41,7 +54,7 @@ function sendLeadToCRM(name, phone, email, plotSize, budget, city) {
 
   try {
     const response = UrlFetchApp.fetch(WEBHOOK_URL, options);
-    Logger.log("CRM Response: " + response.getContentText());
+    Logger.log("CRM Response for " + cleanPhone + ": " + response.getContentText());
   } catch (error) {
     Logger.log("Error sending lead to CRM: " + error.toString());
   }
