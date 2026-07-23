@@ -66,3 +66,40 @@ function onFormSubmitOrEdit(e) {
   sendLeadToCRM(name, phone, email, plotSize, budget, city);
 }
 
+/**
+ * Run this function once in Apps Script Editor (Click Run ▶)
+ * to sync & auto-assign all existing sheet rows to CRM!
+ */
+function syncAllSheetLeads() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    Logger.log("No data rows found in sheet.");
+    return;
+  }
+
+  // Fetch all data rows (starting from Row 2)
+  var range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
+  var rows = range.getValues();
+
+  Logger.log("Starting sync for " + rows.length + " rows...");
+
+  for (var i = 0; i < rows.length; i++) {
+    var rowData = rows[i];
+    var plotSize = rowData[0];
+    var budget   = rowData[1];
+    var name     = rowData[2];
+    var phone    = rowData[3];
+    var email    = rowData[4];
+    var city     = rowData[5];
+
+    if (phone) {
+      sendLeadToCRM(name, phone, email, plotSize, budget, city);
+      Utilities.sleep(300); // 300ms pause between requests
+    }
+  }
+
+  Logger.log("Sync completed successfully!");
+}
+

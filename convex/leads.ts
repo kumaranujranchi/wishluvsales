@@ -156,7 +156,23 @@ export const autoAssignMetaLead = mutation({
       projectId = vrindaProject ? vrindaProject._id : (allProjects[0] ? allProjects[0]._id : "general");
     }
 
-    // 4. Create the new lead
+    // 4. Check for duplicate lead by phone number
+    const existingLead = await ctx.db
+      .query("leads")
+      .filter((q) => q.eq(q.field("phone"), args.phone))
+      .first();
+
+    if (existingLead) {
+      return {
+        success: true,
+        already_exists: true,
+        lead_id: existingLead._id,
+        assigned_to_id: existingLead.assigned_to,
+        message: "Lead with this phone number already exists in CRM.",
+      };
+    }
+
+    // 5. Create the new lead
     const now = new Date().toISOString();
     const leadId = await ctx.db.insert("leads", {
       name: args.name,
