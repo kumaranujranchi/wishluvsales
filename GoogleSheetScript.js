@@ -12,35 +12,79 @@
 
 const WEBHOOK_URL = "https://strong-tapir-797.convex.site/api/webhook/meta-lead";
 
-function sendLeadToCRM(name, phone, email, plotSize, budget, city) {
-  if (!phone) {
-    Logger.log("Skipping: Phone number missing");
-    return;
+/**
+ * Smart Dynamic Parser — Auto detects Phone, Name, Email, Plot Size, Budget, City
+ */
+function parseRowData(rowData, headers) {
+  var name = "", phone = "", email = "", plotSize = "", budget = "", city = "", extraNotes = "";
+
+  for (var j = 0; j < rowData.length; j++) {
+    var val = String(rowData[j] || "").trim();
+    if (!val) continue;
+
+    var header = headers && headers[j] ? String(headers[j]).toLowerCase() : "";
+
+    // Skip header values
+    if (val.indexOf("phone_number") !== -1 || val.indexOf("full_name") !== -1 || val === "email" || val === "city") {
+      continue;
+    }
+
+    var digits = val.replace(/\D/g, "");
+
+    // Detect Phone Number (contains p: or +91 or 10-12 digits and not campaign name)
+    if (!phone && (val.indexOf("p:") === 0 || val.indexOf("+91") === 0 || (digits.length >= 10 && digits.length <= 13)) && val.indexOf("Ad -") === -1 && header.indexOf("campaign") === -1) {
+      phone = digits.length >= 10 ? digits.slice(-10) : digits;
+    }
+    // Detect Email
+    else if (!email && val.indexOf("@") !== -1) {
+      email = val;
+    }
+    // Detect Name
+    else if (!name && (header.indexOf("name") !== -1 || j === 2) && val.indexOf("Ad -") === -1 && digits.length < 5) {
+      name = val;
+    }
+    // Detect Plot Size
+    else if (header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1) {
+      plotSize = val;
+    }
+    // Detect Budget
+    else if (header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1) {
+      budget = val;
+    }
+    // Detect City
+    else if (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1) {
+      city = val;
+    }
+    else {
+      extraNotes += (extraNotes ? " | " : "") + val;
+    }
   }
 
-  var rawPhone = String(phone);
-  // Skip header row if phone is 'phone_number'
-  if (rawPhone.indexOf("phone_number") !== -1 || rawPhone.indexOf("phone") !== -1) {
-    Logger.log("Skipping header row");
-    return;
-  }
+  return {
+    name: name || "Meta Lead",
+    phone: phone,
+    email: email,
+    plotSize: plotSize,
+    budget: budget,
+    city: city,
+    notes: extraNotes
+  };
+}
 
-  // Clean phone number (removes p:+91 prefix or non-digit characters)
-  var digits = rawPhone.replace(/\D/g, "");
-  var cleanPhone = digits.length >= 10 ? digits.slice(-10) : digits;
-
-  if (!cleanPhone || cleanPhone.length < 7) {
-    Logger.log("Skipping invalid phone: " + phone);
+function sendLeadToCRM(leadData) {
+  if (!leadData.phone || leadData.phone.length < 7) {
+    Logger.log("Skipping invalid lead without phone: " + JSON.stringify(leadData));
     return;
   }
 
   const payload = {
-    name: name || "Meta Lead",
-    phone: cleanPhone,
-    email: email || "",
-    plot_size: plotSize || "",
-    budget: budget || "",
-    city: city || "",
+    name: leadData.name,
+    phone: leadData.phone,
+    email: leadData.email,
+    plot_size: leadData.plotSize,
+    budget: leadData.budget,
+    city: leadData.city,
+    notes: leadData.notes,
     project_name: "Vrinda Green City",
     source: "Meta"
   };
@@ -54,65 +98,46 @@ function sendLeadToCRM(name, phone, email, plotSize, budget, city) {
 
   try {
     const response = UrlFetchApp.fetch(WEBHOOK_URL, options);
-    Logger.log("CRM Response for " + cleanPhone + ": " + response.getContentText());
+    Logger.log("CRM Response for " + leadData.name + " (" + leadData.phone + "): " + response.getContentText());
   } catch (error) {
     Logger.log("Error sending lead to CRM: " + error.toString());
   }
 }
 
 /**
- * Triggered automatically when a new row is added or form is submitted
+ * Triggered automatically when a new row is added
  */
 function onFormSubmitOrEdit(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var lastRow = sheet.getLastRow();
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var rowData = sheet.getRange(lastRow, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  // Column Index Mapping:
-  var plotSize = rowData[0]; // Col A: Plot Size
-  var budget   = rowData[1]; // Col B: Budget
-  var name     = rowData[2]; // Col C: Full Name
-  var phone    = rowData[3]; // Col D: Phone Number (e.g. p:+919308964802)
-  var email    = rowData[4]; // Col E: Email
-  var city     = rowData[5]; // Col F: City
-
-  sendLeadToCRM(name, phone, email, plotSize, budget, city);
+  var leadData = parseRowData(rowData, headers);
+  sendLeadToCRM(leadData);
 }
 
 /**
- * Run this function once in Apps Script Editor (Click Run ▶)
- * to sync & auto-assign all existing sheet rows to CRM!
+ * Run this function once (Click ▶ Run) to sync all existing leads!
  */
 function syncAllSheetLeads() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var lastRow = sheet.getLastRow();
 
-  if (lastRow < 2) {
-    Logger.log("No data rows found in sheet.");
-    return;
-  }
+  if (lastRow < 2) return;
 
-  // Fetch all data rows (starting from Row 2)
-  var range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
-  var rows = range.getValues();
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rows = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
 
-  Logger.log("Starting sync for " + rows.length + " rows...");
+  Logger.log("Syncing " + rows.length + " rows...");
 
   for (var i = 0; i < rows.length; i++) {
-    var rowData = rows[i];
-    var plotSize = rowData[0];
-    var budget   = rowData[1];
-    var name     = rowData[2];
-    var phone    = rowData[3];
-    var email    = rowData[4];
-    var city     = rowData[5];
-
-    if (phone) {
-      sendLeadToCRM(name, phone, email, plotSize, budget, city);
-      Utilities.sleep(300); // 300ms pause between requests
+    var leadData = parseRowData(rows[i], headers);
+    if (leadData.phone) {
+      sendLeadToCRM(leadData);
+      Utilities.sleep(300);
     }
   }
 
   Logger.log("Sync completed successfully!");
 }
-
