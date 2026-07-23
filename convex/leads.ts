@@ -65,20 +65,28 @@ export const getExecutiveLeadStats = query({
     // Fetch all leads once
     const allLeads = await ctx.db.query("leads").collect();
 
+    // All possible sources
+    const SOURCE_LIST = ["Referral", "99acres", "MagicBrick", "Housing", "Meta", "Google", "Walk-in"];
+
     return executives.map((exec) => {
       const execLeads = allLeads.filter(
         (l) => l.assigned_to === exec._id || l.assigned_to === exec.supabase_id
       );
       const total = execLeads.length;
+
+      // Source-wise counts — only include sources with at least 1 lead
+      const sources: Record<string, number> = {};
+      for (const src of SOURCE_LIST) {
+        const count = execLeads.filter((l) => l.source === src).length;
+        if (count > 0) sources[src] = count;
+      }
+
       return {
         id: exec._id,
         name: exec.full_name,
         avatar: (exec as any).avatar_url ?? null,
         total,
-        pending: execLeads.filter((l) => l.status === "pending").length,
-        contacted: execLeads.filter((l) => l.status === "contacted").length,
-        converted: execLeads.filter((l) => l.status === "converted").length,
-        lost: execLeads.filter((l) => l.status === "lost").length,
+        sources,
       };
     });
   },

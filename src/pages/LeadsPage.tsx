@@ -339,77 +339,103 @@ export function LeadsPage() {
           </div>
           <div
             className="grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
           >
-            {[...executiveStatsRaw]
-              .sort((a, b) => b.total - a.total)
-              .map((exec) => {
-                const initials = exec.name
-                  .split(' ')
-                  .map((n: string) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase();
-                return (
-                  <div
-                    key={exec.id.toString()}
-                    className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    {/* Avatar + name */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      {exec.avatar ? (
-                        <img src={exec.avatar} alt={exec.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1673FF] to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                          {initials}
+            {(() => {
+              // Fixed color palette for sources
+              const SOURCE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+                'Referral':   { bg: 'bg-purple-50 dark:bg-purple-900/20',  text: 'text-purple-700 dark:text-purple-300', dot: 'bg-purple-400' },
+                '99acres':    { bg: 'bg-blue-50 dark:bg-blue-900/20',      text: 'text-blue-700 dark:text-blue-300',     dot: 'bg-blue-400' },
+                'MagicBrick': { bg: 'bg-orange-50 dark:bg-orange-900/20',  text: 'text-orange-700 dark:text-orange-300', dot: 'bg-orange-400' },
+                'Housing':    { bg: 'bg-teal-50 dark:bg-teal-900/20',      text: 'text-teal-700 dark:text-teal-300',     dot: 'bg-teal-400' },
+                'Meta':       { bg: 'bg-indigo-50 dark:bg-indigo-900/20',  text: 'text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-400' },
+                'Google':     { bg: 'bg-red-50 dark:bg-red-900/20',        text: 'text-red-700 dark:text-red-300',       dot: 'bg-red-400' },
+                'Walk-in':    { bg: 'bg-green-50 dark:bg-green-900/20',    text: 'text-green-700 dark:text-green-300',   dot: 'bg-green-400' },
+              };
+              const SOURCE_BAR_COLORS: Record<string, string> = {
+                'Referral': 'bg-purple-400', '99acres': 'bg-blue-400', 'MagicBrick': 'bg-orange-400',
+                'Housing': 'bg-teal-400', 'Meta': 'bg-indigo-400', 'Google': 'bg-red-400', 'Walk-in': 'bg-green-400',
+              };
+
+              return [...executiveStatsRaw]
+                .sort((a, b) => b.total - a.total)
+                .map((exec) => {
+                  const initials = exec.name
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  const sourcesEntries = Object.entries(exec.sources || {});
+
+                  return (
+                    <div
+                      key={exec.id.toString()}
+                      className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      {/* Avatar + name */}
+                      <div className="flex items-center gap-2 mb-2.5">
+                        {exec.avatar ? (
+                          <img src={exec.avatar} alt={exec.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1673FF] to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                            {initials}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-[#0A1C37] dark:text-white truncate leading-tight">{exec.name}</div>
+                          <div className="text-[10px] text-gray-400">Sales Executive</div>
                         </div>
+                      </div>
+
+                      {/* Total count */}
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">Total Leads</span>
+                        <span className="text-xl font-bold text-[#0A1C37] dark:text-white leading-none">{exec.total}</span>
+                      </div>
+
+                      {/* Source color bar */}
+                      {exec.total > 0 ? (
+                        <div className="w-full flex h-1.5 rounded-full overflow-hidden gap-px mb-2.5">
+                          {sourcesEntries.map(([src, count]) => (
+                            <div
+                              key={src}
+                              className={SOURCE_BAR_COLORS[src] || 'bg-gray-300'}
+                              title={`${src}: ${count}`}
+                              style={{ width: `${(count / exec.total) * 100}%` }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-slate-700 mb-2.5" />
                       )}
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-[#0A1C37] dark:text-white truncate leading-tight">{exec.name}</div>
-                        <div className="text-[10px] text-gray-400">Sales Executive</div>
-                      </div>
-                    </div>
 
-                    {/* Total count */}
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Total Leads</span>
-                      <span className="text-xl font-bold text-[#0A1C37] dark:text-white leading-none">{exec.total}</span>
+                      {/* Source pills */}
+                      {sourcesEntries.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {sourcesEntries
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([src, count]) => {
+                              const c = SOURCE_COLORS[src] || { bg: 'bg-gray-50', text: 'text-gray-600', dot: 'bg-gray-400' };
+                              return (
+                                <div key={src} className={`flex items-center justify-between rounded px-2 py-0.5 ${c.bg}`}>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
+                                    <span className={`text-[10px] font-medium ${c.text}`}>{src}</span>
+                                  </div>
+                                  <span className={`text-[11px] font-bold ${c.text}`}>{count}</span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-gray-400 text-center py-1">No leads yet</div>
+                      )}
                     </div>
-
-                    {/* Mini status color bar */}
-                    {exec.total > 0 ? (
-                      <div className="w-full flex h-1.5 rounded-full overflow-hidden gap-px mb-2">
-                        {exec.pending > 0 && <div className="bg-amber-400" title={`Pending: ${exec.pending}`} style={{ width: `${(exec.pending / exec.total) * 100}%` }} />}
-                        {exec.contacted > 0 && <div className="bg-blue-400" title={`Contacted: ${exec.contacted}`} style={{ width: `${(exec.contacted / exec.total) * 100}%` }} />}
-                        {exec.converted > 0 && <div className="bg-green-400" title={`Converted: ${exec.converted}`} style={{ width: `${(exec.converted / exec.total) * 100}%` }} />}
-                        {exec.lost > 0 && <div className="bg-red-400" title={`Lost: ${exec.lost}`} style={{ width: `${(exec.lost / exec.total) * 100}%` }} />}
-                      </div>
-                    ) : (
-                      <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-slate-700 mb-2" />
-                    )}
-
-                    {/* Status pills */}
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="rounded bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-center">
-                        <div className="text-xs font-semibold text-amber-600">{exec.pending}</div>
-                        <div className="text-[9px] text-amber-500">Pending</div>
-                      </div>
-                      <div className="rounded bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-center">
-                        <div className="text-xs font-semibold text-blue-600">{exec.contacted}</div>
-                        <div className="text-[9px] text-blue-400">Contacted</div>
-                      </div>
-                      <div className="rounded bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 text-center">
-                        <div className="text-xs font-semibold text-green-600">{exec.converted}</div>
-                        <div className="text-[9px] text-green-400">Converted</div>
-                      </div>
-                      <div className="rounded bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 text-center">
-                        <div className="text-xs font-semibold text-red-500">{exec.lost}</div>
-                        <div className="text-[9px] text-red-400">Lost</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+            })()}
           </div>
         </div>
       )}
