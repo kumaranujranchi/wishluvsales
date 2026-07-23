@@ -105,18 +105,19 @@ export const autoAssignMetaLead = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // 1. Fetch active sales executives
+    // 1. Fetch ONLY active sales_executive profiles (excluding team leaders / admins)
     const allProfiles = await ctx.db.query("profiles").collect();
     let executives = allProfiles.filter(
-      (p) => (p.role === "sales_executive" || p.role === "team_leader") && p.is_active !== false
+      (p) => p.role === "sales_executive" && p.is_active !== false
     );
 
     if (executives.length === 0) {
-      executives = allProfiles.filter((p) => p.is_active !== false);
+      // Fallback to any active sales_executive
+      executives = allProfiles.filter((p) => p.role === "sales_executive");
     }
 
     if (executives.length === 0) {
-      throw new Error("No active sales executives or staff members found to assign the lead.");
+      throw new Error("No active Sales Executive profiles found to assign the lead.");
     }
 
     // Sort executives deterministically by ID

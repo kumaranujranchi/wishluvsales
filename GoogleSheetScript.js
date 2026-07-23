@@ -18,42 +18,53 @@ const WEBHOOK_URL = "https://strong-tapir-797.convex.site/api/webhook/meta-lead"
 function parseRowData(rowData, headers) {
   var name = "", phone = "", email = "", plotSize = "", budget = "", city = "", extraNotes = "";
 
+  // 1. Direct Column C Mapping for Customer Full Name
+  if (rowData.length > 2) {
+    var rawName = String(rowData[2] || "").trim();
+    if (rawName && rawName.indexOf("full_name") === -1 && rawName.indexOf("Ad -") === -1 && rawName.indexOf("Ad Set") === -1) {
+      name = rawName;
+    }
+  }
+
   for (var j = 0; j < rowData.length; j++) {
     var val = String(rowData[j] || "").trim();
     if (!val) continue;
 
     var header = headers && headers[j] ? String(headers[j]).toLowerCase() : "";
 
-    // Skip header values
+    // Skip header labels
     if (val.indexOf("phone_number") !== -1 || val.indexOf("full_name") !== -1 || val === "email" || val === "city") {
       continue;
     }
 
     var digits = val.replace(/\D/g, "");
 
-    // Detect Phone Number (contains p: or +91 or 10-12 digits and not campaign name)
-    if (!phone && (val.indexOf("p:") === 0 || val.indexOf("+91") === 0 || (digits.length >= 10 && digits.length <= 13)) && val.indexOf("Ad -") === -1 && header.indexOf("campaign") === -1) {
+    // 2. Phone Number Detection (p:+91 or 10-12 digits, skipping Campaign names)
+    if (!phone && (val.indexOf("p:") === 0 || val.indexOf("+91") === 0 || (digits.length >= 10 && digits.length <= 13)) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1 && header.indexOf("campaign") === -1) {
       phone = digits.length >= 10 ? digits.slice(-10) : digits;
     }
-    // Detect Email
+    // 3. Email Detection
     else if (!email && val.indexOf("@") !== -1) {
       email = val;
     }
-    // Detect Name
-    else if (!name && (header.indexOf("name") !== -1 || j === 2) && val.indexOf("Ad -") === -1 && digits.length < 5) {
+    // 4. Fallback Name Detection if Col C was empty
+    else if (!name && (header.indexOf("full_name") !== -1 || header.indexOf("name") !== -1) && val.indexOf("Ad -") === -1 && val.indexOf("Ad Set") === -1) {
       name = val;
     }
-    // Detect Plot Size
-    else if (header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1) {
+    // 5. Plot Size Detection
+    else if (!plotSize && (j === 0 || header.indexOf("plot") !== -1 || val.indexOf("sq") !== -1 || val.indexOf("feet") !== -1)) {
       plotSize = val;
     }
-    // Detect Budget
-    else if (header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1) {
+    // 6. Budget Detection
+    else if (!budget && (j === 1 || header.indexOf("budget") !== -1 || val.indexOf("lac") !== -1 || val.indexOf("lakh") !== -1 || val.indexOf("L") !== -1)) {
       budget = val;
     }
-    // Detect City
-    else if (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1) {
+    // 7. City Detection
+    else if (!city && (header.indexOf("city") !== -1 || val.toLowerCase().indexOf("patna") !== -1)) {
       city = val;
+    }
+    else if (val.indexOf("Ad -") !== -1 || val.indexOf("Ad Set") !== -1) {
+      extraNotes += (extraNotes ? " | " : "") + "Campaign: " + val;
     }
     else {
       extraNotes += (extraNotes ? " | " : "") + val;
