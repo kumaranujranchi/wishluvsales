@@ -91,3 +91,82 @@ export const getExecutiveLeadStats = query({
     });
   },
 });
+
+/**
+ * Automatically assigns incoming Meta / Google Sheet leads to active Sales Executives in a round-robin loop.
+ */
+export const autoAssignMetaLead = mutation({
+  args: {
+    name: v.string(),
+    phone: v.string(),
+    email: v.optional(v.string()),
+    project_id: v.optional(v.string()),
+    source: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // 1. Fetch active sales executives
+    const allProfiles = await ctx.db.query("profiles").collect();
+    let executives = allProfiles.filter(
+      (p) => (p.role === "sales_executive" || p.role === "team_leader") && p.is_active !== false
+    );
+
+    if (executives.length === 0) {
+      executives = allProfiles.filter((p) => p.is_active !== false);
+    }
+
+    if (executives.length === 0) {
+      throw new Error("No active sales executives or staff members found to assign the lead.");
+    }
+
+    // Sort executives deterministically by ID
+    executives.sort((a, b) => a._id.localeCompare(b._id));
+
+    // 2. Find last assigned executive to determine round-robin index
+    const lastLead = await ctx.db.query("leads").order("desc").first();
+    let nextIndex = 0;
+
+    if (lastLead && lastLead.assigned_to) {
+      const lastIndex = executives.findIndex(
+        (exec) => exec._id === lastLead.assigned_to || exec.supabase_id === lastLead.assigned_to
+      );
+      if (lastIndex !== -1) {
+        nextIndex = (lastIndex + 1) % executives.length;
+      }
+    }
+
+    const assignedExecutive = executives[nextIndex];
+
+    // 3. Resolve project_id if not provided
+    let projectId = args.project_id;
+    if (!projectId) {
+      const firstProject = await ctx.db.query("projects").first();
+      projectId = firstProject ? firstProject._id : "general";
+    }
+
+    // 4. Create the new lead
+    const now = new Date().toISOString();
+    const leadId = await ctx.db.insert("leads", {
+      name: args.name,
+      phone: args.phone,
+      email: args.email,
+      project_id: projectId,
+      assigned_to: assignedExecutive._id,
+      source: args.source || "Meta",
+      status: "pending",
+      notes: args.notes || "Auto-assigned via Meta / Google Sheet Integration",
+      created_at: now,
+      updated_at: now,
+    });
+
+    return {
+      success: true,
+      lead_id: leadId,
+      assigned_to_id: assignedExecutive._id,
+      assigned_to_name: assignedExecutive.full_name,
+      assigned_to_email: assignedExecutive.email,
+      project_id: projectId,
+    };
+  },
+});
+
