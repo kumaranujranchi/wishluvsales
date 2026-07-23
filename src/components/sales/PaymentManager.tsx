@@ -9,7 +9,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Modal, ModalFooter } from '../ui/Modal';
-import { Plus, Download, TrendingUp, History, Edit2, X } from 'lucide-react';
+import { Plus, Download, TrendingUp, History, Edit2, Trash2, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface PaymentManagerProps {
@@ -28,6 +28,7 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
     // Convex Mutations
     const addPayment = useMutation(api.payments.add);
     const updatePayment = useMutation(api.payments.update);
+    const deletePayment = useMutation(api.payments.remove);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
@@ -118,6 +119,21 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
             paymentMode: 'cheque',
             remarks: ''
         });
+    };
+
+    const handleDeletePayment = async (payment: Doc<"payments">) => {
+        const confirmed = await dialog.confirm(
+            `Are you sure you want to delete this payment entry of ${formatCurrency(Number(payment.amount))}? This action cannot be undone.`,
+            { title: 'Delete Payment', variant: 'danger', confirmText: 'Delete' }
+        );
+        if (!confirmed) return;
+        try {
+            await deletePayment({ id: payment._id });
+            await dialog.alert('Payment deleted successfully.', { variant: 'success' });
+        } catch (err: any) {
+            console.error('Error deleting payment:', err);
+            await dialog.alert('Failed to delete payment.', { variant: 'danger' });
+        }
     };
 
     const handleDownloadLedger = () => {
@@ -329,13 +345,22 @@ export function PaymentManager({ isOpen, onClose, sale }: PaymentManagerProps) {
                                             <td className="px-4 py-2 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(Number(payment.amount))}</td>
                                             <td className="px-4 py-2 text-gray-500 truncate max-w-[150px]">{payment.remarks || '-'}</td>
                                             <td className="px-4 py-2 text-right">
-                                                <button 
-                                                    onClick={() => handleEditPayment(payment)}
-                                                    className="p-1 hover:bg-gray-100 dark:hover:bg-[#2a3f35] rounded-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                                                    title="Edit Payment"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button 
+                                                        onClick={() => handleEditPayment(payment)}
+                                                        className="p-1 hover:bg-gray-100 dark:hover:bg-[#2a3f35] rounded-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                                                        title="Edit Payment"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeletePayment(payment)}
+                                                        className="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                                        title="Delete Payment"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
