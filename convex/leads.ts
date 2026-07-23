@@ -51,3 +51,35 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+// Returns per-sales-executive lead count breakdown (for lead distribution cards)
+export const getExecutiveLeadStats = query({
+  args: {},
+  handler: async (ctx) => {
+    // Fetch all sales_executive profiles
+    const executives = await ctx.db
+      .query("profiles")
+      .filter((q) => q.eq(q.field("role"), "sales_executive"))
+      .collect();
+
+    // Fetch all leads once
+    const allLeads = await ctx.db.query("leads").collect();
+
+    return executives.map((exec) => {
+      const execLeads = allLeads.filter(
+        (l) => l.assigned_to === exec._id || l.assigned_to === exec.supabase_id
+      );
+      const total = execLeads.length;
+      return {
+        id: exec._id,
+        name: exec.full_name,
+        avatar: (exec as any).avatar_url ?? null,
+        total,
+        pending: execLeads.filter((l) => l.status === "pending").length,
+        contacted: execLeads.filter((l) => l.status === "contacted").length,
+        converted: execLeads.filter((l) => l.status === "converted").length,
+        lost: execLeads.filter((l) => l.status === "lost").length,
+      };
+    });
+  },
+});
